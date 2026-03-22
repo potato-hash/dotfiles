@@ -1,0 +1,33 @@
+brew "chezmoi"
+brew "mas"
+brew "eza"
+brew "fd"
+brew "ffmpeg"
+brew "fzf"
+brew "gemini-cli"
+brew "gh"
+brew "micro"
+brew "mosh"
+brew "python@3.13"
+brew "ssh-copy-id"
+brew "starship"
+brew "tailscale"
+brew "tmux"
+brew "zoxide"
+cask "betterdisplay"
+cask "bitwarden"
+cask "claude"
+cask "discord"
+cask "ghostty"
+cask "grandperspective"
+cask "hush"
+cask "obsidian"
+cask "qbittorrent"
+cask "zed"
+go "tailscale.com/cmd/tailscale"
+go "tailscale.com/cmd/tailscaled"
+mas "Amphetamine", id: 937984704
+mas "Apple Developer", id: 640199958
+mas "TestFlight", id: 899247664
+mas "Wipr", id: 1320666476
+mas "Xcode", id: 497799835
