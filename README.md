@@ -18,7 +18,7 @@ That's it. Everything below happens automatically.
 
 ### Packages (Brewfile)
 
-**CLI tools:** chezmoi, eza, fd, ffmpeg, fzf, gemini-cli, gh, mas, micro, mosh, python 3.13, ssh-copy-id, starship, tailscale, tmux, zoxide
+**CLI tools:** chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, mas, micro, mosh, python 3.13, ssh-copy-id, starship, tailscale, tmux, zoxide
 
 **Apps (Homebrew):** BetterDisplay, Bitwarden, Claude, Discord, Ghostty, GrandPerspective, Hush, Obsidian, qBittorrent, Zed
 
@@ -41,10 +41,16 @@ Removes: Chess, FaceTime, Freeform, GarageBand, Home, Image Playground, iMovie, 
 
 ### macOS Settings
 
-- **Dock:** auto-hide, 48px tile size
-- **Finder:** show hidden files, file extensions, path bar
-- **Keyboard:** fast key repeat, no autocorrect, no auto-capitalization
+- **Dock:** auto-hide, 48px tiles, no delay, no recents, no bounce, scale minimize, custom app layout via dockutil
+- **Hot corners:** top-right puts display to sleep
+- **Finder:** hidden files, extensions, path bar, status bar, folders first, search current folder, list view, POSIX path in title
+- **Keyboard:** fast key repeat, key repeat over accent picker, no autocorrect/auto-cap/smart dashes/smart quotes/smart periods
 - **Trackpad:** tap-to-click
+- **Dialogs:** expanded save/print panels, save to disk by default
+- **Screenshots:** saved to ~/Screenshots as PNG, no shadow, no thumbnail
+- **Storage:** no .DS_Store on network/USB drives
+- **Security:** immediate screen lock, firewall on, stealth mode on, secure keyboard entry in Terminal
+- **Misc:** Photos won't auto-launch on device connect
 
 ## Manual Installs
 

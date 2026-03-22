@@ -1,4 +1,5 @@
 brew "chezmoi"
+brew "dockutil"
 brew "mas"
 brew "eza"
 brew "fd"
