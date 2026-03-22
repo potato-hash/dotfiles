@@ -62,7 +62,7 @@ alias ls='eza'
 alias ll='eza -l'
 alias la='eza -la'
 
-# Auto-attach to tmux on remote connections (SSH/mosh via Blink Shell)
-if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && { [[ -n "$SSH_CONNECTION" ]] || [[ -n "$SSH_TTY" ]]; }; then
+# Auto-attach to tmux (local and remote)
+if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && command -v tmux &>/dev/null; then
     tmux new-session -A -s main
 fi
