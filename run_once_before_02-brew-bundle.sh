@@ -3,7 +3,10 @@ set -e
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-BREWFILE="$(chezmoi source-path 2>/dev/null)/Brewfile"
+BREWFILE="${CHEZMOI_SOURCE_DIR:+${CHEZMOI_SOURCE_DIR}/Brewfile}"
+if [ ! -f "$BREWFILE" ]; then
+    BREWFILE="$(chezmoi source-path 2>/dev/null)/Brewfile"
+fi
 if [ ! -f "$BREWFILE" ]; then
     BREWFILE="${HOME}/.local/share/chezmoi/Brewfile"
 fi
