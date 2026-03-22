@@ -101,7 +101,7 @@ alt-shift-ctrl-left = 'move-workspace-to-monitor --wrap-around prev'
 alt-shift-ctrl-right = 'move-workspace-to-monitor --wrap-around next'
 
 # App launchers (omarchy: SUPER+SHIFT+key)
-alt-shift-return = ['exec-and-forget open -a Ghostty']
+alt-shift-enter = ['exec-and-forget open -a Ghostty']
 alt-shift-b = ['exec-and-forget open -a Zen']
 alt-shift-n = ['exec-and-forget open -a Zed']
 alt-shift-o = ['exec-and-forget open -a Obsidian']
