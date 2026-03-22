@@ -25,15 +25,25 @@ style = "bold mauve"
 truncation_length = 20
 
 [git_status]
-format = '([$all_status$ahead_behind]($style)) '
+format = '([$all_status$ahead_behind]($style) )'
 style = "bold red"
+ahead = "⇡"
+behind = "⇣"
+diverged = "⇡⇣"
+stashed = ""
+modified = "*"
+staged = ""
+untracked = ""
+deleted = ""
+renamed = ""
+conflicted = ""
 
 [character]
 success_symbol = "[❯](bold green)"
 error_symbol = "[❯](bold red)"
 
 [cmd_duration]
-min_time = 2_000
+min_time = 5_000
 format = "[$duration]($style) "
 style = "bold yellow"
 
