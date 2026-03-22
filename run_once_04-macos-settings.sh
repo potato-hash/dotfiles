@@ -1,5 +1,7 @@
 #!/bin/bash
 
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
 # ── Dock ─────────────────────────────────────────────────────────────────────
 echo -e "\n\033[1;34m==> Configuring Dock\033[0m"
 
@@ -119,6 +121,9 @@ defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
 defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 echo "    ✓ Tap-to-click enabled"
+
+defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
+echo "    ✓ Natural scrolling disabled (scroll direction reversed)"
 
 # ── Save & Print ─────────────────────────────────────────────────────────────
 echo -e "\n\033[1;34m==> Configuring dialogs\033[0m"
