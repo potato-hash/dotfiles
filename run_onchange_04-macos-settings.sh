@@ -172,10 +172,10 @@ defaults write com.apple.screensaver askForPassword -int 1
 defaults write com.apple.screensaver askForPasswordDelay -int 0
 echo "    ✓ Require password immediately after sleep/screensaver"
 
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null || echo "    ⚠ Firewall setting requires sudo (skipped)"
 echo "    ✓ Firewall enabled"
 
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null || echo "    ⚠ Stealth mode requires sudo (skipped)"
 echo "    ✓ Stealth mode enabled"
 
 # ── Misc ─────────────────────────────────────────────────────────────────────
