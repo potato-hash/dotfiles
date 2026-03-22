@@ -181,6 +181,18 @@ echo "    ✓ Photos won't auto-launch on device connect"
 defaults write com.apple.terminal SecureKeyboardEntry -bool true
 echo "    ✓ Secure keyboard entry in Terminal"
 
+# ── Default Apps ────────────────────────────────────────────────────────────
+echo -e "\n\033[1;34m==> Setting default terminal and browser\033[0m"
+
+defaults write com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers -array-add \
+    '{LSHandlerRoleAll = "com.mitchellh.ghostty"; LSHandlerURLScheme = "terminal";}'
+echo "    ✓ Ghostty set as default terminal"
+
+defaults write com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers -array-add \
+    '{LSHandlerRoleAll = "app.zen-browser.zen"; LSHandlerURLScheme = "http";}' \
+    '{LSHandlerRoleAll = "app.zen-browser.zen"; LSHandlerURLScheme = "https";}'
+echo "    ✓ Zen set as default browser"
+
 # ── Apply changes ────────────────────────────────────────────────────────────
 echo -e "\n\033[1;34m==> Applying changes\033[0m"
 killall Dock 2>/dev/null || true
