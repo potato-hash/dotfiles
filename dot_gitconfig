@@ -1,0 +1,9 @@
+[user]
+	name = Alan Thomas
+	email = alan.c.thomas@icloud.com
+[credential "https://github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential

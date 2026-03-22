@@ -1,0 +1,73 @@
+# Compact prompt that works well on narrow mobile screens and locally
+
+# Timeout for commands that starship runs (ms)
+command_timeout = 1000
+
+# Newline between prompts
+add_newline = true
+
+# Prompt format — keep it short for mobile
+format = """$directory$git_branch$git_status$character"""
+
+# Right-side prompt — extra info without eating line space
+right_format = """$cmd_duration$battery"""
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+style = "bold cyan"
+
+[git_branch]
+format = " [$branch]($style)"
+style = "bold purple"
+truncation_length = 20
+
+[git_status]
+format = '([$all_status$ahead_behind]($style)) '
+style = "bold red"
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+
+[cmd_duration]
+min_time = 2_000
+format = "[$duration]($style) "
+style = "bold yellow"
+
+[battery]
+disabled = false
+[[battery.display]]
+threshold = 30
+style = "bold red"
+
+# Disable modules that add clutter on mobile
+[package]
+disabled = true
+
+[nodejs]
+disabled = true
+
+[python]
+disabled = true
+
+[rust]
+disabled = true
+
+[golang]
+disabled = true
+
+[java]
+disabled = true
+
+[docker_context]
+disabled = true
+
+[aws]
+disabled = true
+
+[gcloud]
+disabled = true
+
+[kubernetes]
+disabled = true

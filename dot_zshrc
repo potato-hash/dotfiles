@@ -1,0 +1,25 @@
+export PATH="$HOME/bin:$HOME/.claude/local:$PATH"
+
+# Starship prompt
+eval "$(starship init zsh)"
+
+# Claude Code session helpers
+alias cs='~/bin/claude-session'
+alias tls='tmux list-sessions'
+alias ta='tmux attach -t'
+
+# fzf shell integration (Ctrl+R history, Ctrl+T file finder)
+source <(fzf --zsh)
+
+# zoxide (smarter cd — use 'z' to jump to frecent directories)
+eval "$(zoxide init zsh)"
+
+# eza aliases
+alias ls='eza'
+alias ll='eza -l'
+alias la='eza -la'
+
+# Auto-attach to tmux on remote connections (SSH/mosh via Blink Shell)
+if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && { [[ -n "$SSH_CONNECTION" ]] || [[ -n "$SSH_TTY" ]]; }; then
+    tmux new-session -A -s main
+fi

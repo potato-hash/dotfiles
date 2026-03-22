@@ -1,0 +1,12 @@
+#!/bin/bash
+# Start or attach to a persistent Claude Code tmux session
+
+SESSION_NAME="claude"
+
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "Attaching to existing Claude Code session..."
+    tmux attach -t "$SESSION_NAME"
+else
+    echo "Creating new Claude Code session..."
+    tmux new-session -s "$SESSION_NAME" claude
+fi
