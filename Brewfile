@@ -33,5 +33,4 @@ go "tailscale.com/cmd/tailscaled"
 mas "Amphetamine", id: 937984704
 mas "Apple Developer", id: 640199958
 mas "TestFlight", id: 899247664
-mas "Wipr", id: 1320666476
 mas "Xcode", id: 497799835
