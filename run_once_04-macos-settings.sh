@@ -1,5 +1,7 @@
 #!/bin/bash
 
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
 # ── Dock ─────────────────────────────────────────────────────────────────────
 echo -e "\n\033[1;34m==> Configuring Dock\033[0m"
 
