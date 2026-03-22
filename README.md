@@ -29,8 +29,9 @@ That's it. Everything below happens automatically.
 ### Dotfiles
 
 - `.zshrc` — starship, fzf, zoxide, eza aliases, tmux auto-attach
-- `.config/starship.toml` — compact prompt for mobile/remote use
-- `.config/ghostty/config` — Ghostty terminal settings
+- `.config/starship.toml` — compact prompt with Catppuccin Mocha palette
+- `.config/ghostty/config` — Ghostty terminal settings (Catppuccin Mocha)
+- `.config/zed/settings.json` — Zed editor settings (Catppuccin Mocha)
 - `.tmux.conf` — prefix key, mouse support, 256 color
 - `.gitconfig` — git identity and gh credential helper
 - `bin/claude-session` — tmux session helper for Claude Code

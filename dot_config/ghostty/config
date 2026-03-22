@@ -43,7 +43,7 @@
 # resize-overlay-duration = 4s 200ms
 
 font-family = Iosevka
-theme = gruvbox dark
+theme = Catppuccin Mocha
 background-opacity = 0.9
 
 # this is a test
