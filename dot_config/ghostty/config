@@ -42,6 +42,7 @@
 # # Just for example:
 # resize-overlay-duration = 4s 200ms
 
+font-family = Iosevka
 theme = gruvbox dark
 background-opacity = 0.9
 

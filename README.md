@@ -61,9 +61,29 @@ A few apps need manual download — see [MANUAL_INSTALL.md](MANUAL_INSTALL.md).
 ```bash
 # After changing a config locally:
 chezmoi add ~/.config/ghostty/config    # update chezmoi's copy
-chezmoi cd                               # cd into source repo
-git add -A && git commit -m "..." && git push
+cd ~/dotfiles && git add -A && git commit -m "..." && git push
 
 # To pull changes on this machine:
 chezmoi update
+```
+
+### Relocating the source directory
+
+By default, `chezmoi init` clones to `~/.local/share/chezmoi`. To use `~/dotfiles` instead:
+
+```bash
+git clone https://github.com/potato-hash/dotfiles.git ~/dotfiles
+echo 'sourceDir = "/Users/$USER/dotfiles"' > ~/.config/chezmoi/chezmoi.toml
+chezmoi apply
+```
+
+### Discovering macOS settings
+
+To find the `defaults write` command for a GUI setting:
+
+```bash
+defaults read > /tmp/before.plist
+# Change something in System Settings...
+defaults read > /tmp/after.plist
+diff /tmp/before.plist /tmp/after.plist
 ```
