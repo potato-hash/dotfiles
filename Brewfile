@@ -1,6 +1,5 @@
 brew "chezmoi"
 brew "dockutil"
-brew "mas"
 brew "eza"
 brew "fd"
 brew "ffmpeg"
@@ -27,8 +26,8 @@ cask "zed"
 cask "zen"
 go "tailscale.com/cmd/tailscale"
 go "tailscale.com/cmd/tailscaled"
-mas "Amphetamine", id: 937984704
-mas "Apple Developer", id: 640199958
-mas "TestFlight", id: 899247664
-mas "Wipr", id: 1320666476
-mas "Xcode", id: 497799835
+# Mac App Store apps (install manually - mas requires re-auth per app)
+# mas "Amphetamine", id: 937984704
+# mas "Apple Developer", id: 640199958
+# mas "TestFlight", id: 899247664
+# mas "Xcode", id: 497799835
