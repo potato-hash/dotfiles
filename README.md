@@ -1,8 +1,8 @@
 # dotfiles
 
-Automated Mac setup — one command to go from a fresh macOS install to a fully configured machine.
+Automated setup for macOS and Omarchy Linux.
 
-## Setup
+## macOS Setup
 
 1. Complete macOS OOBE and sign into the App Store
 2. Open Terminal and run:
@@ -14,9 +14,29 @@ Automated Mac setup — one command to go from a fresh macOS install to a fully 
 
 That's it. Everything below happens automatically.
 
+## Omarchy Setup
+
+Install Omarchy first, then apply the Linux side of these dotfiles:
+
+```bash
+omarchy pkg add chezmoi
+chezmoi init --apply potato-hash
+```
+
+On Omarchy, chezmoi applies only the Linux-specific pieces:
+
+- Bash profile that loads Omarchy's shell defaults
+- Hyprland input settings for US + Colemak layout switching
+- Hyprlock fingerprint unlock
+- Git config using `/usr/bin/gh` as the credential helper
+- Omarchy `theme-set` hook for `omazed`
+- One-time package bootstrap for common CLI tools and Omarchy apps
+
+The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `defaults` scripts are ignored on Linux so they do not overwrite Omarchy's stock desktop behavior.
+
 ## What It Does
 
-### Packages (Brewfile)
+### macOS Packages (Brewfile)
 
 **CLI tools:** chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, mas, micro, mosh, python 3.13, ssh-copy-id, starship, tailscale, tmux, zoxide
 
@@ -26,7 +46,7 @@ That's it. Everything below happens automatically.
 
 **Go:** tailscale + tailscaled
 
-### Dotfiles
+### Shared/macOS Dotfiles
 
 - `.zshrc` — starship, fzf, zoxide, eza aliases, tmux auto-attach
 - `.config/starship.toml` — compact prompt with Catppuccin Mocha palette
@@ -36,7 +56,7 @@ That's it. Everything below happens automatically.
 - `.gitconfig` — git identity and gh credential helper
 - `bin/claude-session` — tmux session helper for Claude Code
 
-### App Removal
+### macOS App Removal
 
 Removes: Chess, FaceTime, Freeform, GarageBand, Home, Image Playground, iMovie, Journal, Keynote, Maps, News, Phone, Photo Booth, Podcasts, Stocks, Stickies, Tips, TV
 

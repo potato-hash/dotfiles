@@ -1,3 +1,27 @@
 Brewfile
 MANUAL_INSTALL.md
 README.md
+
+{{ if ne .chezmoi.os "darwin" }}
+dot_config/aerospace
+dot_config/ghostty/config
+dot_config/starship.toml
+dot_config/zed/private_settings.json
+dot_config/zen-browser
+dot_gitconfig
+dot_tmux.conf
+dot_zshrc
+run_once_before_01-install-homebrew.sh
+run_once_before_02-brew-bundle.sh
+run_onchange_04-macos-settings.sh
+run_onchange_05-zen-browser-theme.sh
+{{ end }}
+
+{{ if ne .chezmoi.os "linux" }}
+dot_bash_profile
+dot_bashrc
+dot_config/git
+dot_config/hypr
+dot_config/omarchy
+run_once_before_10-omarchy-packages.sh
+{{ end }}
