@@ -30,9 +30,9 @@ On Omarchy, chezmoi applies only the Linux-specific pieces:
 - Hyprlock fingerprint unlock
 - Git config using `/usr/bin/gh` as the credential helper
 - Omarchy `theme-set` hook for `omazed`
-- One-time package bootstrap for common CLI tools and Omarchy apps
+- Idempotent Omarchy local setup script that installs preferred packages/apps, sets Tokyo Night/Ghostty/Zen/Zed defaults, patches app bindings, and removes redundant preinstalls while keeping Chromium for Omarchy web apps
 
-The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `defaults` scripts are ignored on Linux so they do not overwrite Omarchy's stock desktop behavior.
+The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `defaults` scripts are ignored on Linux so they do not overwrite Omarchy's stock desktop behavior. The Omarchy setup script is ignored on macOS, so it cannot affect the macOS Homebrew/defaults setup.
 
 ## What It Does
 
