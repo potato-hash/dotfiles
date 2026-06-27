@@ -26,6 +26,7 @@ install_core_packages() {
         github-cli \
         micro \
         mosh \
+        npm \
         obsidian \
         starship \
         tailscale \
@@ -35,6 +36,16 @@ install_core_packages() {
         localsend \
         claude-code \
         discord
+}
+
+install_omp() {
+    section "Installing Oh My Pi"
+
+    if command -v omp >/dev/null 2>&1; then
+        return
+    fi
+
+    npm install --global --prefix "$HOME/.local" @oh-my-pi/pi-coding-agent
 }
 
 install_desktop_preferences() {
@@ -158,6 +169,7 @@ validate_hyprland() {
 }
 
 install_core_packages
+install_omp
 install_desktop_preferences
 apply_defaults
 patch_hypr_bindings

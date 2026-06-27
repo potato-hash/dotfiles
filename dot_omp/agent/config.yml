@@ -1,0 +1,33 @@
+providers:
+  webSearch: codex
+setupVersion: 1
+modelRoles:
+  default: openai-codex/gpt-5.5:xhigh
+tui:
+  textSizing: true
+loop:
+  mode: prompt
+autoResume: true
+lsp:
+  formatOnWrite: true
+  diagnosticsOnEdit: true
+bash:
+  autoBackground:
+    enabled: true
+bashInterceptor:
+  enabled: true
+checkpoint:
+  enabled: true
+vault:
+  enabled: true
+github:
+  enabled: true
+plan:
+  defaultOnStartup: true
+task:
+  eager: always
+  enableLsp: true
+  maxRecursionDepth: 3
+  isolation:
+    mode: auto
+    merge: patch
