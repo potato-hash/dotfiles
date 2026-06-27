@@ -92,8 +92,8 @@ desired = [
     'bindd = SUPER SHIFT, SLASH, Bitwarden, exec, omarchy-launch-or-focus bitwarden "uwsm-app -- bitwarden"',
 ]
 
-# Replace only the preinstalled-app bindings that conflict with this setup.
-# Leave web apps and core Omarchy navigation/media bindings intact.
+# Replace preinstalled app bindings and unwanted default web app hotkeys.
+# Keep YouTube as the only default web app hotkey.
 remove_prefixes = (
     "bindd = SUPER SHIFT, M,",
     "bindd = SUPER SHIFT ALT, M,",
@@ -103,6 +103,15 @@ remove_prefixes = (
     "bindd = SUPER SHIFT, O,",
     "bindd = SUPER SHIFT, W,",
     "bindd = SUPER SHIFT, SLASH,",
+    "bindd = SUPER SHIFT, A,",
+    "bindd = SUPER SHIFT ALT, A,",
+    "bindd = SUPER SHIFT, C,",
+    "bindd = SUPER SHIFT, E,",
+    "bindd = SUPER SHIFT ALT, G,",
+    "bindd = SUPER SHIFT CTRL, G,",
+    "bindd = SUPER SHIFT, P,",
+    "bindd = SUPER SHIFT, X,",
+    "bindd = SUPER SHIFT ALT, X,",
 )
 
 out = []
@@ -160,6 +169,38 @@ remove_redundant_preinstalls() {
         opencode
 }
 
+remove_default_webapps() {
+    section "Removing unwanted default web apps"
+
+    omarchy webapp remove \
+        Basecamp \
+        ChatGPT \
+        Figma \
+        Fizzy \
+        GitHub \
+        "Google Contacts" \
+        "Google Maps" \
+        "Google Messages" \
+        "Google Photos" \
+        HEY \
+        Tailscale \
+        WhatsApp \
+        X \
+        Zoom
+}
+
+ensure_kept_webapps() {
+    section "Ensuring kept web apps"
+
+    if [[ ! -f "$HOME/.local/share/applications/Discord.desktop" ]]; then
+        omarchy webapp install "Discord" "https://discord.com/channels/@me" ""
+    fi
+
+    if [[ ! -f "$HOME/.local/share/applications/YouTube.desktop" ]]; then
+        omarchy webapp install "YouTube" "https://youtube.com/" ""
+    fi
+}
+
 validate_hyprland() {
     if command -v hyprctl >/dev/null 2>&1 && hyprctl instances >/dev/null 2>&1; then
         section "Validating Hyprland config"
@@ -174,6 +215,8 @@ install_desktop_preferences
 apply_defaults
 patch_hypr_bindings
 remove_redundant_preinstalls
+remove_default_webapps
+ensure_kept_webapps
 validate_hyprland
 
 success "Omarchy local setup complete."
