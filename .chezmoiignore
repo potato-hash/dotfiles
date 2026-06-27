@@ -23,5 +23,6 @@ dot_bashrc
 dot_config/git
 dot_config/hypr
 dot_config/omarchy
+dot_config/waybar
 run_onchange_after_10-omarchy-local.sh.tmpl
 {{ end }}
