@@ -89,7 +89,10 @@ desired = [
     'bindd = SUPER SHIFT, N, Zed, exec, omarchy-launch-or-focus zed "uwsm-app -- zeditor"',
     'bindd = SUPER SHIFT, D, Discord, exec, omarchy-launch-or-focus discord "uwsm-app -- discord"',
     'bindd = SUPER SHIFT, O, Obsidian, exec, omarchy-launch-or-focus ^obsidian$ "uwsm-app -- obsidian"',
-    'bindd = SUPER SHIFT, SLASH, Bitwarden, exec, omarchy-launch-or-focus bitwarden "uwsm-app -- bitwarden"',
+    'bindd = SUPER SHIFT, SLASH, Bitwarden, exec, omarchy-launch-or-focus Bitwarden "uwsm-app -- bitwarden-desktop"',
+    'bindd = SUPER SHIFT, A, Oh My Pi, exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" bash -lc "omp"',
+    'bindd = SUPER SHIFT, C, Claude, exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" bash -lc "claude"',
+    'bindd = SUPER SHIFT, G, GitHub, exec, omarchy-launch-browser "https://github.com/"',
 ]
 
 # Replace preinstalled app bindings and unwanted default web app hotkeys.
