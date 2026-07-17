@@ -1,0 +1,13 @@
+# OMP v17.0.3 smoke overlay. Keep deterministic and session-local.
+advisor:
+  enabled: false
+  subagents: false
+memory:
+  backend: off
+hindsight:
+  autoRecall: false
+  autoRetain: false
+mcp:
+  enableProjectConfig: false
+providers:
+  webSearch: kagi

@@ -1,20 +1,65 @@
-providers:
-  webSearch: codex
+# OMP v17.0.3 baseline verified 2026-07-17: config load, advisor, prewalk,
+# Hindsight/xd://, and RPC smoke tests passed.
+symbolPreset: nerd
+theme:
+  dark: titanium
 setupVersion: 1
 modelRoles:
-  default: openai-codex/gpt-5.5:xhigh
-tui:
-  textSizing: true
-loop:
-  mode: prompt
-autoResume: true
+  default: openai-codex/gpt-5.6-sol:medium
+  smol: openai-codex/gpt-5.6-luna:low
+  slow: openai-codex/gpt-5.6-sol:xhigh
+  plan: openai-codex/gpt-5.6-sol:xhigh
+  task: openai-codex/gpt-5.6-luna:medium
+  advisor: openai-codex/gpt-5.6-terra:high
+  designer: openai-codex/gpt-5.6-sol:high
+  commit: openai-codex/gpt-5.6-luna:minimal
+  tiny: openai-codex/gpt-5.6-luna:minimal
+defaultThinkingLevel: medium
+prewalk:
+  enabled: true
+advisor:
+  enabled: true
+  subagents: true
+  syncBacklog: '1'
+autoResume: false
+features:
+  unexpectedStopDetection: true
+branchSummary:
+  enabled: true
+contextPromotion:
+  enabled: true
+compaction:
+  thresholdPercent: 80
+  handoffSaveToDisk: true
+memory:
+  backend: hindsight
+hindsight:
+  polyphonicRecall: true
+  enhancedRecall: true
+  llmMode: smol
+  apiUrl: http://tower.humpback-solfege.ts.net:8888
+  bankId: default
+  scoping: global
+  autoRecall: true
+  autoRetain: true
+  retainContext: omp
+  recallBudget: high
+  recallMaxTokens: 4096
+  recallTypes:
+  - observation
+  - world
+  - experience
+read:
+  summarize:
+    prose: true
 lsp:
   formatOnWrite: true
-  diagnosticsOnEdit: true
 bash:
   autoBackground:
     enabled: true
 bashInterceptor:
+  enabled: true
+inspect_image:
   enabled: true
 checkpoint:
   enabled: true
@@ -25,9 +70,10 @@ github:
 plan:
   defaultOnStartup: true
 task:
-  eager: always
-  enableLsp: true
-  maxRecursionDepth: 3
+  eager: preferred
   isolation:
     mode: auto
-    merge: patch
+providers:
+  webSearch: kagi
+secrets:
+  enabled: true
