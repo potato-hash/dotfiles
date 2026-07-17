@@ -17,6 +17,10 @@ run_onchange_04-macos-settings.sh
 run_onchange_05-zen-browser-theme.sh
 {{ end }}
 
+{{ if ne .chezmoi.os "darwin" }}
+dot_local/bin/executable_apple-build-worker
+{{ end }}
+
 {{ if ne .chezmoi.os "linux" }}
 dot_bash_profile
 dot_bashrc

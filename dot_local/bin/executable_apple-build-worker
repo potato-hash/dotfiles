@@ -1,0 +1,336 @@
+#!/bin/bash
+# Fixed stdin/stdout worker for apple-build protocol v1. Bash 3.2 compatible.
+set -u
+
+MAX_REQUEST_BYTES=524288000
+MAX_MANIFEST_BYTES=65536
+MAX_BUNDLE_BYTES=524287000
+HARD_MAX_BUILD_LOG_BYTES=67108864
+HARD_MAX_RESULT_ARCHIVE_BYTES=4294967296
+HARD_MAX_RESULT_MEMBERS=250000
+HARD_MAX_RESULT_EXPANDED_BYTES=21474836480
+HARD_MAX_RESULT_MEMBER_BYTES=8589934592
+JOB=
+BUILD_STATUS=125
+
+env_work_root_set=${APPLE_DEV_WORK_ROOT+x}
+env_work_root=${APPLE_DEV_WORK_ROOT-}
+config_file=$HOME/.config/apple-dev/config
+if [ -r "$config_file" ] && [ -f "$config_file" ]; then
+    . "$config_file"
+fi
+[ "$env_work_root_set" = x ] && APPLE_DEV_WORK_ROOT=$env_work_root
+WORK_ROOT=${APPLE_DEV_WORK_ROOT:-"$HOME/Library/Caches/apple-build-worker"}
+
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_INDEX_FILE GIT_NAMESPACE
+unset GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+export GIT_NO_REPLACE_OBJECTS=1
+readonly MAX_REQUEST_BYTES MAX_MANIFEST_BYTES MAX_BUNDLE_BYTES
+readonly HARD_MAX_BUILD_LOG_BYTES HARD_MAX_RESULT_ARCHIVE_BYTES
+readonly HARD_MAX_RESULT_MEMBERS HARD_MAX_RESULT_EXPANDED_BYTES
+readonly HARD_MAX_RESULT_MEMBER_BYTES WORK_ROOT
+
+fail() { printf 'apple-build-worker: error: %s\n' "$*" >&2; exit 125; }
+lower_limit() {
+    hard=$1
+    variable=$2
+    eval "value=\${$variable-}"
+    if [ -z "$value" ]; then
+        printf '%s\n' "$hard"
+        return
+    fi
+    case "$value" in *[!0-9]*|0) fail "$variable must be a positive decimal integer" ;; esac
+    [ "$value" -le "$hard" ] 2>/dev/null || fail "$variable may only lower its hard limit"
+    printf '%s\n' "$value"
+}
+MAX_BUILD_LOG_BYTES=$(lower_limit "$HARD_MAX_BUILD_LOG_BYTES" APPLE_BUILD_TEST_MAX_LOG_BYTES) || exit 125
+MAX_RESULT_ARCHIVE_BYTES=$(lower_limit "$HARD_MAX_RESULT_ARCHIVE_BYTES" APPLE_BUILD_TEST_MAX_ARCHIVE_BYTES) || exit 125
+MAX_RESULT_MEMBERS=$(lower_limit "$HARD_MAX_RESULT_MEMBERS" APPLE_BUILD_TEST_MAX_MEMBERS) || exit 125
+MAX_RESULT_EXPANDED_BYTES=$(lower_limit "$HARD_MAX_RESULT_EXPANDED_BYTES" APPLE_BUILD_TEST_MAX_EXPANDED_BYTES) || exit 125
+MAX_RESULT_MEMBER_BYTES=$(lower_limit "$HARD_MAX_RESULT_MEMBER_BYTES" APPLE_BUILD_TEST_MAX_MEMBER_BYTES) || exit 125
+readonly MAX_BUILD_LOG_BYTES MAX_RESULT_ARCHIVE_BYTES MAX_RESULT_MEMBERS
+readonly MAX_RESULT_EXPANDED_BYTES MAX_RESULT_MEMBER_BYTES
+
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    [ -z "$JOB" ] || rm -rf "$JOB"
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+[ "$#" -eq 0 ] || fail "worker accepts no arguments"
+[ -x /usr/bin/python3 ] || fail "python3 is unavailable"
+command -v git >/dev/null 2>&1 || fail "git is unavailable"
+command -v xcodebuild >/dev/null 2>&1 || fail "xcodebuild is unavailable"
+mkdir -p "$WORK_ROOT" || fail "cannot create work root"
+case "$WORK_ROOT" in /*) ;; *) fail "work root must be absolute" ;; esac
+# Only direct job.* directories older than one day are stale candidates. A job
+# with a PID that still exists is retained; PID reuse therefore leaks stale
+# state rather than risking deletion of a live build.
+for stale in "$WORK_ROOT"/job.*; do
+    [ -d "$stale" ] || continue
+    case "$stale" in
+        "$WORK_ROOT"/job.*)
+            live=false
+            if IFS= read -r worker_pid <"$stale/.apple-build-worker.pid" 2>/dev/null; then
+                case "$worker_pid" in
+                    ""|*[!0-9]*|0) ;;
+                    *)
+                        if kill -0 "$worker_pid" 2>/dev/null || ps -p "$worker_pid" >/dev/null 2>&1; then
+                            live=true
+                        fi
+                        ;;
+                esac
+            fi
+            [ "$live" = true ] && continue
+            if find "$stale" -prune -mtime +1 -exec rm -rf {} \; 2>/dev/null; then :; fi
+            ;;
+    esac
+done
+JOB=$(mktemp -d "$WORK_ROOT/job.XXXXXX") || fail "cannot create job directory"
+printf '%s\n' "$$" >"$JOB/.apple-build-worker.pid" || fail "cannot mark live job"
+REQUEST=$JOB/request.tar.gz
+/usr/bin/python3 -c 'import sys; target=sys.argv[1]; limit=int(sys.argv[2]); size=0; out=open(target, "wb"); data=sys.stdin.buffer;
+while True:
+    chunk=data.read(65536)
+    if not chunk: break
+    size += len(chunk)
+    if size > limit: raise SystemExit("request exceeds 500 MiB limit")
+    out.write(chunk)
+out.close()' "$REQUEST" "$MAX_REQUEST_BYTES" || fail "cannot read bounded request"
+
+/usr/bin/python3 - "$REQUEST" "$JOB" "$MAX_MANIFEST_BYTES" "$MAX_BUNDLE_BYTES" <<'PY' || exit 125
+import json, os, re, shutil, sys, tarfile
+archive, job, manifest_limit, bundle_limit = sys.argv[1:]
+manifest_limit = int(manifest_limit)
+bundle_limit = int(bundle_limit)
+
+def pairs(items):
+    out = {}
+    for key, value in items:
+        if key in out:
+            raise ValueError("duplicate key")
+        out[key] = value
+    return out
+
+def text(value, required=False):
+    return isinstance(value, str) and (not required or bool(value)) and not any(c in value for c in "\x00\r\n")
+
+def selector(value, suffix):
+    if not text(value, True) or value.startswith('/') or value.startswith('-'):
+        return False
+    parts = value.split('/')
+    return all(part not in ('', '.', '..') for part in parts) and value.endswith(suffix)
+
+def load_json(raw):
+    return json.loads(raw.decode('utf-8'), object_pairs_hook=pairs)
+
+seen = set()
+with tarfile.open(archive, 'r:gz') as tf:
+    members = tf.getmembers()
+    if len(members) != 2:
+        raise ValueError("request must contain exactly two members")
+    for member in members:
+        name = member.name
+        if name in seen or name.startswith('/') or name.startswith('./') or '//' in name:
+            raise ValueError("unsafe or duplicate member")
+        if any(p in ('', '.', '..') for p in name.split('/')):
+            raise ValueError("traversal member")
+        if name not in ('manifest.json', 'repository.bundle') or not member.isfile():
+            raise ValueError("invalid request member")
+        limit = manifest_limit if name == 'manifest.json' else bundle_limit
+        if member.size < 0 or member.size > limit:
+            raise ValueError("request member exceeds size limit")
+        seen.add(name)
+    if seen != {'manifest.json', 'repository.bundle'}:
+        raise ValueError("missing request member")
+    for name in seen:
+        source = tf.extractfile(name)
+        if source is None:
+            raise ValueError("unreadable request member")
+        target = os.path.join(job, name)
+        with open(target, 'xb') as out:
+            remaining = manifest_limit if name == 'manifest.json' else bundle_limit
+            while remaining:
+                chunk = source.read(min(65536, remaining))
+                if not chunk:
+                    break
+                out.write(chunk)
+                remaining -= len(chunk)
+            if source.read(1):
+                raise ValueError("request member exceeds size limit")
+manifest = load_json(open(os.path.join(job, 'manifest.json'), 'rb').read())
+if type(manifest) is not dict:
+    raise ValueError("manifest must be an object")
+allowed = {'protocol_version','commit','action','scheme','project','workspace','destination','configuration'}
+if set(manifest) - allowed:
+    raise ValueError("unknown manifest key")
+required = {'protocol_version','commit','action','scheme'}
+if not required.issubset(manifest):
+    raise ValueError("missing manifest key")
+if type(manifest['protocol_version']) is not int or manifest['protocol_version'] != 1:
+    raise ValueError("protocol mismatch")
+if not text(manifest['commit']) or not re.fullmatch(r'[0-9a-f]{40}', manifest['commit']):
+    raise ValueError("invalid commit")
+if manifest['action'] not in ('build','test') or not text(manifest['scheme'], True):
+    raise ValueError("invalid action or scheme")
+selectors = [key for key in ('project','workspace') if key in manifest]
+if len(selectors) != 1:
+    raise ValueError("exactly one selector required")
+if not selector(manifest[selectors[0]], '.xcodeproj' if selectors[0] == 'project' else '.xcworkspace'):
+    raise ValueError("invalid selector")
+for key in ('destination','configuration'):
+    if key in manifest and not text(manifest[key], True):
+        raise ValueError("invalid optional field")
+with open(os.path.join(job, 'validated-fields.json'), 'w') as out:
+    json.dump(manifest, out, ensure_ascii=False)
+PY
+
+mkdir -p "$JOB/repo"
+git -C "$JOB/repo" init -q || fail "cannot initialize repository"
+git -C "$JOB/repo" fetch -q --no-tags "$JOB/repository.bundle" refs/apple-build/request:refs/apple-build/request || fail "bundle fetch failed"
+git -C "$JOB/repo" fsck --full --strict >/dev/null 2>&1 || fail "bundle integrity check failed"
+commit=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1]))['commit'])
+PY
+)
+git -C "$JOB/repo" cat-file -e "$commit^{commit}" || fail "requested commit missing from bundle"
+git -C "$JOB/repo" checkout -q --detach "$commit" || fail "cannot checkout requested commit detached"
+checkout=$JOB/repo
+cd "$checkout" || fail "cannot enter detached checkout"
+/usr/bin/python3 - "$JOB/validated-fields.json" "$checkout" <<'PY' || fail "selected path is unsafe"
+import json, os, sys
+m=json.load(open(sys.argv[1])); rel=m.get('project') or m.get('workspace')
+root=os.path.realpath(sys.argv[2]); path=os.path.realpath(os.path.join(root, rel))
+if path != root and not path.startswith(root + os.sep): raise SystemExit(1)
+if not os.path.exists(path): raise SystemExit(1)
+PY
+
+scheme=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1]))['scheme'])
+PY
+)
+action=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1]))['action'])
+PY
+)
+project=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+m=json.load(open(sys.argv[1])); print(m.get('project',''))
+PY
+)
+workspace=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+m=json.load(open(sys.argv[1])); print(m.get('workspace',''))
+PY
+)
+destination=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+m=json.load(open(sys.argv[1])); print(m.get('destination',''))
+PY
+)
+configuration=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
+import json,sys
+m=json.load(open(sys.argv[1])); print(m.get('configuration',''))
+PY
+)
+mkdir -p "$JOB/DerivedData" "$JOB/result"
+cmd=(xcodebuild)
+if [ -n "$project" ]; then cmd+=( -project "$checkout/$project" ); else cmd+=( -workspace "$checkout/$workspace" ); fi
+cmd+=( -scheme "$scheme" -derivedDataPath "$JOB/DerivedData" -resultBundlePath "$JOB/result/Result.xcresult" )
+[ -n "$destination" ] && cmd+=( -destination "$destination" )
+[ -n "$configuration" ] && cmd+=( -configuration "$configuration" )
+cmd+=( "$action" )
+cat >"$JOB/capture_log.py" <<'PY'
+import sys
+
+output_path, limit_text = sys.argv[1:]
+limit = int(limit_text)
+stored = 0
+with open(output_path, "wb") as output:
+    while True:
+        chunk = sys.stdin.buffer.read(65536)
+        if not chunk:
+            break
+        if stored < limit:
+            keep = min(len(chunk), limit - stored)
+            output.write(chunk[:keep])
+            stored += keep
+PY
+set +e
+"${cmd[@]}" 2>&1 | /usr/bin/python3 "$JOB/capture_log.py" "$JOB/xcodebuild.log" "$MAX_BUILD_LOG_BYTES"
+pipeline_status=("${PIPESTATUS[@]}")
+BUILD_STATUS=${pipeline_status[0]}
+log_status=${pipeline_status[1]}
+set -e
+[ "$log_status" -eq 0 ] || fail "cannot capture bounded xcodebuild log"
+/usr/bin/python3 - "$JOB/validated-fields.json" "$JOB/metadata.json" "$JOB/result/Result.xcresult" "$BUILD_STATUS" <<'PY'
+import json, os, sys
+m=json.load(open(sys.argv[1])); out={'protocol_version':1,'commit':m['commit'],'action':m['action'],'xcodebuild_exit_status':int(sys.argv[4]),'result_bundle_present':os.path.exists(sys.argv[3])}
+json.dump(out, open(sys.argv[2],'w'), sort_keys=True, separators=(',',':')); open(sys.argv[2],'a').write('\n')
+PY
+mkdir -p "$JOB/payload"
+cp "$JOB/manifest.json" "$JOB/payload/manifest.json"
+cp "$JOB/metadata.json" "$JOB/payload/metadata.json"
+cp "$JOB/xcodebuild.log" "$JOB/payload/xcodebuild.log"
+if [ -d "$JOB/result/Result.xcresult" ]; then
+    cp -R "$JOB/result/Result.xcresult" "$JOB/payload/Result.xcresult"
+fi
+# Result archive names are fixed; tar is used only after the producer paths are known.
+payload_entries=(manifest.json metadata.json xcodebuild.log)
+[ -d "$JOB/payload/Result.xcresult" ] && payload_entries+=(Result.xcresult)
+result_archive=$JOB/result.tar.gz
+# macOS tar otherwise emits AppleDouble ._* metadata members, which are outside the protocol allowlist.
+COPYFILE_DISABLE=1 tar -czf "$result_archive" -C "$JOB/payload" "${payload_entries[@]}" || fail "cannot package result archive"
+/usr/bin/python3 - "$result_archive" "$MAX_RESULT_ARCHIVE_BYTES" "$MAX_RESULT_MEMBERS" "$MAX_RESULT_EXPANDED_BYTES" "$MAX_RESULT_MEMBER_BYTES" <<'PY' || exit 125
+import os, sys, tarfile
+
+archive, archive_limit, member_limit, expanded_limit, individual_limit = sys.argv[1:]
+archive_limit = int(archive_limit)
+member_limit = int(member_limit)
+expanded_limit = int(expanded_limit)
+individual_limit = int(individual_limit)
+if os.stat(archive).st_size > archive_limit:
+    raise SystemExit("result archive exceeds compressed size limit")
+members = 0
+expanded = 0
+with tarfile.open(archive, "r:gz") as result:
+    for member in result:
+        members += 1
+        if members > member_limit:
+            raise SystemExit("result archive exceeds member count limit")
+        if member.size < 0 or member.size > individual_limit:
+            raise SystemExit("result member exceeds individual size limit")
+        expanded += member.size
+        if expanded > expanded_limit:
+            raise SystemExit("result archive exceeds expanded size limit")
+        name = member.name
+        if not name or name.startswith("/") or name.startswith("./") or "//" in name:
+            raise SystemExit("result archive contains unsafe member")
+        parts = name.rstrip("/").split("/")
+        if any(part in ("", ".", "..") for part in parts):
+            raise SystemExit("result archive contains traversal member")
+        if name in ("manifest.json", "metadata.json", "xcodebuild.log"):
+            if not member.isfile():
+                raise SystemExit("result fixed member is not regular")
+        elif name == "Result.xcresult" or name.startswith("Result.xcresult/"):
+            if not (member.isfile() or member.isdir()):
+                raise SystemExit("result bundle member is not regular or directory")
+        else:
+            raise SystemExit("result archive contains unexpected member")
+PY
+cat "$result_archive" || fail "cannot write result archive"
+# Keep transport failure and controller signal statuses unambiguous on the SSH
+# channel. metadata.json preserves the exact xcodebuild status for inspection.
+CLIENT_BUILD_STATUS=$BUILD_STATUS
+case "$CLIENT_BUILD_STATUS" in
+    125|129|130|143) CLIENT_BUILD_STATUS=65 ;;
+esac
+exit "$CLIENT_BUILD_STATUS"

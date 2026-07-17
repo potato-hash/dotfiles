@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# Read-only Apple development host health controller.
+# Configuration is trusted shell assignments from ~/.config/apple-dev/config.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: apple-dev-health [options]
+
+Run one read-only SSH probe against an Apple development host.
+
+Options:
+  --json                         Emit one stable JSON document
+  --config PATH                  Load trusted configuration from PATH
+  --host HOST                    SSH host (default: apple-dev)
+  --free-disk-gb N               Critical below N GB (default: 20)
+  --stale-days N                 Build metadata age threshold (default: 14)
+  --build-root PATH              Remote build metadata root
+  --hindsight-health-command CMD Read-only remote Hindsight probe
+  --tart-vm NAME                 Check this exact Tart VM
+  --help                         Show this help
+
+Precedence is CLI > environment > config > defaults.
+Configuration names: APPLE_DEV_HOST, APPLE_DEV_FREE_DISK_GB,
+APPLE_DEV_STALE_DAYS, APPLE_DEV_HINDSIGHT_HEALTH_COMMAND,
+APPLE_DEV_BUILD_ROOT, APPLE_DEV_TART_VM. APPLE_DEV_CONFIG selects the config.
+EOF
+}
+
+die_usage() {
+    printf 'apple-dev-health: error: %s\n' "$1" >&2
+    exit 2
+}
+
+# Preserve the caller's environment before the trusted config is sourced.
+env_config=${APPLE_DEV_CONFIG-}
+env_host_set=${APPLE_DEV_HOST+x}; env_host=${APPLE_DEV_HOST-}
+env_free_disk_set=${APPLE_DEV_FREE_DISK_GB+x}; env_free_disk=${APPLE_DEV_FREE_DISK_GB-}
+env_stale_days_set=${APPLE_DEV_STALE_DAYS+x}; env_stale_days=${APPLE_DEV_STALE_DAYS-}
+env_hindsight_set=${APPLE_DEV_HINDSIGHT_HEALTH_COMMAND+x}; env_hindsight=${APPLE_DEV_HINDSIGHT_HEALTH_COMMAND-}
+env_build_root_set=${APPLE_DEV_BUILD_ROOT+x}; env_build_root=${APPLE_DEV_BUILD_ROOT-}
+env_tart_vm_set=${APPLE_DEV_TART_VM+x}; env_tart_vm=${APPLE_DEV_TART_VM-}
+
+config_file=${env_config:-$HOME/.config/apple-dev/config}
+scan_index=1
+while [ "$scan_index" -le "$#" ]; do
+    scan_arg=${!scan_index}
+    if [ "$scan_arg" = --config ]; then
+        scan_index=$((scan_index + 1))
+        [ "$scan_index" -le "$#" ] || die_usage "--config requires a path"
+        config_file=${!scan_index}
+    fi
+    scan_index=$((scan_index + 1))
+done
+
+host=apple-dev
+free_disk_gb=20
+stale_days=14
+hindsight_health_command=
+build_root=$HOME/Library/Developer/Xcode/DerivedData
+tart_vm=
+json=false
+
+if [ -r "$config_file" ] && [ -f "$config_file" ]; then
+    # shellcheck disable=SC1090
+    . "$config_file"
+fi
+
+# Config assignments override defaults.
+[ "${APPLE_DEV_HOST+x}" = x ] && host=$APPLE_DEV_HOST
+[ "${APPLE_DEV_FREE_DISK_GB+x}" = x ] && free_disk_gb=$APPLE_DEV_FREE_DISK_GB
+[ "${APPLE_DEV_STALE_DAYS+x}" = x ] && stale_days=$APPLE_DEV_STALE_DAYS
+[ "${APPLE_DEV_HINDSIGHT_HEALTH_COMMAND+x}" = x ] && hindsight_health_command=$APPLE_DEV_HINDSIGHT_HEALTH_COMMAND
+[ "${APPLE_DEV_BUILD_ROOT+x}" = x ] && build_root=$APPLE_DEV_BUILD_ROOT
+[ "${APPLE_DEV_TART_VM+x}" = x ] && tart_vm=$APPLE_DEV_TART_VM
+
+# The original environment overrides config, including explicit empty values.
+[ "$env_host_set" = x ] && host=$env_host
+[ "$env_free_disk_set" = x ] && free_disk_gb=$env_free_disk
+[ "$env_stale_days_set" = x ] && stale_days=$env_stale_days
+[ "$env_hindsight_set" = x ] && hindsight_health_command=$env_hindsight
+[ "$env_build_root_set" = x ] && build_root=$env_build_root
+[ "$env_tart_vm_set" = x ] && tart_vm=$env_tart_vm
+
+# CLI is parsed last and therefore has the highest precedence.
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --json) json=true; shift ;;
+        --config) [ "$#" -ge 2 ] || die_usage "--config requires a path"; config_file=$2; shift 2 ;;
+        --host) [ "$#" -ge 2 ] || die_usage "--host requires a value"; host=$2; shift 2 ;;
+        --free-disk-gb) [ "$#" -ge 2 ] || die_usage "--free-disk-gb requires a value"; free_disk_gb=$2; shift 2 ;;
+        --stale-days) [ "$#" -ge 2 ] || die_usage "--stale-days requires a value"; stale_days=$2; shift 2 ;;
+        --build-root) [ "$#" -ge 2 ] || die_usage "--build-root requires a path"; build_root=$2; shift 2 ;;
+        --hindsight-health-command) [ "$#" -ge 2 ] || die_usage "--hindsight-health-command requires a command"; hindsight_health_command=$2; shift 2 ;;
+        --tart-vm) [ "$#" -ge 2 ] || die_usage "--tart-vm requires a name"; tart_vm=$2; shift 2 ;;
+        --help|-h) usage; exit 0 ;;
+        *) die_usage "unknown option: $1" ;;
+    esac
+done
+
+valid_number() { [[ "$1" =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]]; }
+valid_integer() { [[ "$1" =~ ^(0|[1-9][0-9]*)$ ]]; }
+valid_host() { [[ "$1" =~ ^[A-Za-z0-9._:-]+$ ]]; }
+contains_control() { [[ "$1" == *$'\n'* || "$1" == *$'\r'* || "$1" == *$'\t'* ]]; }
+
+valid_number "$free_disk_gb" || die_usage "free disk threshold must be a non-negative number"
+valid_integer "$stale_days" || die_usage "stale days must be a non-negative integer"
+valid_host "$host" || die_usage "host contains unsupported characters"
+contains_control "$build_root" && die_usage "build root contains control characters"
+contains_control "$hindsight_health_command" && die_usage "Hindsight command contains control characters"
+if [ -n "$tart_vm" ] && ! [[ "$tart_vm" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    die_usage "Tart VM contains unsupported characters"
+fi
+
+# Capture check fields as parallel scalar variables for Bash 3.2 compatibility.
+reachable_status=critical; reachable_severity=critical; reachable_message="SSH probe not attempted"
+macos_status=critical; macos_severity=critical; macos_message="Remote host is not macOS"
+omp_status=critical; omp_severity=critical; omp_message="omp is unavailable"
+xcode_status=critical; xcode_severity=critical; xcode_message="Xcode is unavailable"
+simulator_runtime_status=critical; simulator_runtime_severity=critical; simulator_runtime_message="No available iOS simulator runtime"
+disk_status=critical; disk_severity=critical; disk_message="Free disk could not be measured"
+hindsight_status=neutral; hindsight_severity=neutral; hindsight_message="Hindsight health check is not configured"
+tart_status=warning; tart_severity=warning; tart_message="Tart state is unavailable"
+stale_build_state_status=neutral; stale_build_state_severity=neutral; stale_build_state_message="No stale build metadata detected"
+critical_count=0; warning_count=0
+
+shell_quote() {
+    local value
+    value=${1//\'/\'\\\'\'}
+    printf "'%s'" "$value"
+}
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# Positional arguments are shell-quoted locally because OpenSSH joins its remote
+# command arguments into one command string. The remote script itself is fixed.
+remote_command="bash -s -- $(shell_quote "$hindsight_health_command") $(shell_quote "$build_root") $(shell_quote "$stale_days") $(shell_quote "$tart_vm")"
+probe_output=
+if probe_output=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "$remote_command" <<'REMOTE_SCRIPT'
+set -u
+hindsight_health_command=$1
+build_root=$2
+stale_days=$3
+tart_vm=$4
+PATH="$HOME/.local/bin:$HOME/.bun/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+export PATH
+
+one_line() { tr '\r\n\t' '   ' | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//'; }
+emit() { printf '%s=%s\n' "$1" "$2"; }
+
+if command -v sw_vers >/dev/null 2>&1; then emit macos "$(sw_vers -productVersion 2>/dev/null | one_line)"; else emit macos ""; fi
+if command -v omp >/dev/null 2>&1; then emit omp "$( (omp --version 2>/dev/null || omp version 2>/dev/null || true) | one_line)"; else emit omp ""; fi
+if command -v xcode-select >/dev/null 2>&1; then emit xcode_path "$(xcode-select -p 2>/dev/null | one_line)"; else emit xcode_path ""; fi
+if command -v xcodebuild >/dev/null 2>&1; then emit xcode_version "$(xcodebuild -version 2>/dev/null | one_line)"; else emit xcode_version ""; fi
+if command -v xcrun >/dev/null 2>&1 && xcrun simctl list runtimes 2>/dev/null | grep -E '^[[:space:]]*iOS ' | grep -Eiv 'unavailable' >/dev/null 2>&1; then
+    emit simulator available
+else
+    emit simulator ""
+fi
+free_kb=$(df -Pk / 2>/dev/null | awk 'NR==2 {print $4}')
+emit disk_kb "$free_kb"
+
+if command -v tart >/dev/null 2>&1; then
+    emit tart_present yes
+    if [ -n "$tart_vm" ]; then
+        if tart get "$tart_vm" >/dev/null 2>&1; then
+            emit tart_found yes
+            if tart ip "$tart_vm" >/dev/null 2>&1; then emit tart_state running; else emit tart_state stopped; fi
+        else
+            emit tart_found no
+            emit tart_state missing
+        fi
+    else
+        emit tart_found unconfigured
+        emit tart_state unconfigured
+    fi
+else
+    emit tart_present no
+    emit tart_found no
+    emit tart_state missing
+fi
+
+if [ -n "$hindsight_health_command" ]; then
+    if bash -c "$hindsight_health_command" >/dev/null 2>&1; then emit hindsight ok; else emit hindsight failed; fi
+else
+    emit hindsight unconfigured
+fi
+
+if [ -d "$build_root" ]; then
+    stale=$(find "$build_root" -type d -mtime +"$stale_days" -print 2>/dev/null | sed -n '1p')
+    if [ -n "$stale" ]; then emit stale yes; else emit stale no; fi
+else
+    emit stale unknown
+fi
+REMOTE_SCRIPT
+); then
+    reachable_status=pass; reachable_severity=neutral; reachable_message="SSH read-only probe succeeded"
+    while IFS='=' read -r key value; do
+        case "$key" in
+            macos) [ -n "$value" ] && { macos_status=pass; macos_severity=neutral; macos_message="macOS $value"; } ;;
+            omp) [ -n "$value" ] && { omp_status=pass; omp_severity=neutral; omp_message=$value; } ;;
+            xcode_path) [ -n "$value" ] && xcode_path_seen=$value ;;
+            xcode_version) [ -n "$value" ] && xcode_version_seen=$value ;;
+            simulator) [ "$value" = available ] && { simulator_runtime_status=pass; simulator_runtime_severity=neutral; simulator_runtime_message="Available iOS simulator runtime"; } ;;
+            disk_kb)
+                if [[ "$value" =~ ^[0-9]+$ ]]; then
+                    disk_gb=$(awk -v kb="$value" 'BEGIN { printf "%.2f", kb / 1048576 }')
+                    if awk -v actual="$disk_gb" -v threshold="$free_disk_gb" 'BEGIN { exit !(actual < threshold) }'; then
+                        disk_status=critical; disk_severity=critical; disk_message="Free disk ${disk_gb} GB is below ${free_disk_gb} GB"
+                    else
+                        disk_status=pass; disk_severity=neutral; disk_message="Free disk ${disk_gb} GB"
+                    fi
+                fi
+                ;;
+            tart_present) tart_present_seen=$value ;;
+            tart_found) tart_found_seen=$value ;;
+            tart_state) tart_state_seen=$value ;;
+            hindsight)
+                case "$value" in
+                    ok) hindsight_status=pass; hindsight_severity=neutral; hindsight_message="Hindsight health check passed" ;;
+                    failed) hindsight_status=warning; hindsight_severity=warning; hindsight_message="Hindsight health check failed" ;;
+                esac
+                ;;
+            stale)
+                case "$value" in
+                    yes) stale_build_state_status=warning; stale_build_state_severity=warning; stale_build_state_message="Stale build metadata found" ;;
+                    unknown) stale_build_state_message="Build root does not exist" ;;
+                esac
+                ;;
+        esac
+    done <<EOF_OUTPUT
+$probe_output
+EOF_OUTPUT
+
+    if [ -n "${xcode_path_seen:-}" ] && [ -n "${xcode_version_seen:-}" ]; then
+        xcode_status=pass; xcode_severity=neutral; xcode_message=$xcode_version_seen
+    fi
+    if [ "${tart_present_seen:-no}" = no ]; then
+        tart_message="Tart is not installed"
+    elif [ -z "$tart_vm" ]; then
+        tart_message="Tart is installed; no VM configured"
+    elif [ "${tart_found_seen:-no}" = no ]; then
+        tart_message="Configured Tart VM $tart_vm was not found"
+    elif [ "${tart_state_seen:-stopped}" = running ]; then
+        tart_status=pass; tart_severity=neutral; tart_message="Tart VM $tart_vm is running"
+    else
+        tart_message="Tart VM $tart_vm is stopped"
+    fi
+else
+    reachable_message="SSH probe failed or timed out"
+fi
+
+for severity in "$reachable_severity" "$macos_severity" "$omp_severity" "$xcode_severity" "$simulator_runtime_severity" "$disk_severity" "$hindsight_severity" "$tart_severity" "$stale_build_state_severity"; do
+    [ "$severity" = critical ] && critical_count=$((critical_count + 1))
+    [ "$severity" = warning ] && warning_count=$((warning_count + 1))
+done
+ok=true; [ "$critical_count" -gt 0 ] && ok=false
+
+if [ "$json" = true ]; then
+    printf '{"ok":%s' "$ok"
+    for check in reachable macos omp xcode simulator_runtime disk hindsight tart stale_build_state; do
+        status_var=${check}_status
+        severity_var=${check}_severity
+        message_var=${check}_message
+        status=${!status_var}
+        severity=${!severity_var}
+        message=${!message_var}
+        printf ',"%s":{"status":"%s","severity":"%s","message":"%s"}' "$check" "$status" "$severity" "$(json_escape "$message")"
+    done
+    printf '}\n'
+else
+    overall=OK
+    [ "$warning_count" -gt 0 ] && overall=WARNING
+    [ "$critical_count" -gt 0 ] && overall=CRITICAL
+    printf 'Apple development health: %s\n' "$overall"
+    for check in reachable macos omp xcode simulator_runtime disk hindsight tart stale_build_state; do
+        severity_var=${check}_severity
+        message_var=${check}_message
+        severity=${!severity_var}
+        message=${!message_var}
+        printf '  %-20s %-8s %s\n' "$check" "$severity" "$message"
+    done
+fi
+
+if [ "$critical_count" -gt 0 ]; then exit 2; fi
+if [ "$warning_count" -gt 0 ]; then exit 1; fi
+exit 0

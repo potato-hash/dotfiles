@@ -1,0 +1,517 @@
+#!/usr/bin/env bash
+# Stream a published Git commit to the fixed macOS apple-build worker.
+set -euo pipefail
+
+readonly PROTOCOL_VERSION=1
+readonly BUNDLE_REF=refs/apple-build/request
+readonly TRANSPORT_FAILURE_STATUS=125
+readonly HARD_MAX_RESULT_ARCHIVE_BYTES=4294967296
+readonly HARD_MAX_RESULT_MEMBERS=250000
+readonly HARD_MAX_RESULT_EXPANDED_BYTES=21474836480
+readonly HARD_MAX_RESULT_MEMBER_BYTES=8589934592
+readonly HARD_MAX_BUILD_LOG_BYTES=67108864
+readonly MAX_MANIFEST_BYTES=65536
+
+temp_root=
+result_temp=
+transport_temp=
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    [ -z "$result_temp" ] || rm -f "$result_temp"
+    [ -z "$transport_temp" ] || rm -f "$transport_temp"
+    [ -z "$temp_root" ] || rm -rf "$temp_root"
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+usage() {
+    cat <<'EOF'
+Usage: apple-build [options] [repository]
+
+  -r, --repository PATH       Local Git repository (or positional PATH)
+      --revision REVISION     Revision to build (default: HEAD)
+      --scheme NAME           Xcode scheme (required)
+      --action build|test     Action (required)
+      --project PATH          Relative .xcodeproj path (required unless workspace)
+      --workspace PATH        Relative .xcworkspace path (required unless project)
+      --destination SPEC      Optional xcodebuild destination
+      --configuration NAME    Optional build configuration
+      --artifacts PATH        Local artifact directory (default: ./apple-build-artifacts)
+      --config PATH           Trusted shell config (default: ~/.config/apple-dev/config)
+      --host HOST             SSH config alias (default: apple-dev)
+      --dry-run               Validate and prepare the request without SSH
+  -h, --help                  Show this help
+EOF
+}
+die() {
+    printf 'apple-build: error: %s\n' "$*" >&2
+    exit 1
+}
+die_transport() {
+    printf 'apple-build: transport/protocol error: %s\n' "$*" >&2
+    exit "$TRANSPORT_FAILURE_STATUS"
+}
+
+lower_limit() {
+    hard=$1
+    variable=$2
+    eval "value=\${$variable-}"
+    if [ -z "$value" ]; then
+        printf '%s\n' "$hard"
+        return
+    fi
+    case "$value" in *[!0-9]*|0) die "test limit $variable must be a positive decimal integer" ;; esac
+    [ "$value" -le "$hard" ] 2>/dev/null || die "test limit $variable may only lower its hard limit"
+    printf '%s\n' "$value"
+}
+
+
+valid_text() {
+    [ -n "$1" ] || return 1
+    case "$1" in
+        *$'\n'*|*$'\r'*) return 1 ;;
+    esac
+    return 0
+}
+
+valid_host() {
+    case "$1" in
+        ""|-*|*[!A-Za-z0-9._-]*) return 1 ;;
+    esac
+    return 0
+}
+
+valid_selector() {
+    valid_text "$1" || return 1
+    case "$1" in
+        /*|.|..|./*|*/./*|*/.|../*|*/../*|*/..|*//* ) return 1 ;;
+    esac
+    return 0
+}
+
+git_safe() (
+    unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+    unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_INDEX_FILE GIT_NAMESPACE
+    unset GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+    export GIT_NO_REPLACE_OBJECTS=1
+    command git "$@"
+)
+
+# Preserve explicit environment values before loading the trusted config.
+env_config_set=${APPLE_DEV_CONFIG+x}; env_config=${APPLE_DEV_CONFIG-}
+env_host_set=${APPLE_DEV_HOST+x}; env_host=${APPLE_DEV_HOST-}
+env_repo_set=${APPLE_DEV_REPOSITORY+x}; env_repo=${APPLE_DEV_REPOSITORY-}
+env_revision_set=${APPLE_DEV_REVISION+x}; env_revision=${APPLE_DEV_REVISION-}
+env_scheme_set=${APPLE_DEV_SCHEME+x}; env_scheme=${APPLE_DEV_SCHEME-}
+env_action_set=${APPLE_DEV_ACTION+x}; env_action=${APPLE_DEV_ACTION-}
+env_project_set=${APPLE_DEV_PROJECT+x}; env_project=${APPLE_DEV_PROJECT-}
+env_workspace_set=${APPLE_DEV_WORKSPACE+x}; env_workspace=${APPLE_DEV_WORKSPACE-}
+env_destination_set=${APPLE_DEV_DESTINATION+x}; env_destination=${APPLE_DEV_DESTINATION-}
+env_configuration_set=${APPLE_DEV_CONFIGURATION+x}; env_configuration=${APPLE_DEV_CONFIGURATION-}
+env_artifacts_set=${APPLE_DEV_ARTIFACTS+x}; env_artifacts=${APPLE_DEV_ARTIFACTS-}
+
+config_file=${env_config:-$HOME/.config/apple-dev/config}
+scan_index=1
+while [ "$scan_index" -le "$#" ]; do
+    scan_arg=${!scan_index}
+    if [ "$scan_arg" = --config ]; then
+        scan_index=$((scan_index + 1))
+        [ "$scan_index" -le "$#" ] || die "--config requires a path"
+        config_file=${!scan_index}
+    fi
+    scan_index=$((scan_index + 1))
+done
+
+host=apple-dev
+repository=
+revision=HEAD
+scheme=
+action=
+project=
+workspace=
+destination=
+configuration=
+artifacts=./apple-build-artifacts
+dry_run=false
+
+if [ -r "$config_file" ] && [ -f "$config_file" ]; then
+    # This file is user-owned and intentionally treated as trusted shell configuration.
+    # shellcheck disable=SC1090
+    . "$config_file"
+fi
+
+[ "${APPLE_DEV_HOST+x}" = x ] && host=$APPLE_DEV_HOST
+[ "${APPLE_DEV_REPOSITORY+x}" = x ] && repository=$APPLE_DEV_REPOSITORY
+[ "${APPLE_DEV_REVISION+x}" = x ] && revision=$APPLE_DEV_REVISION
+[ "${APPLE_DEV_SCHEME+x}" = x ] && scheme=$APPLE_DEV_SCHEME
+[ "${APPLE_DEV_ACTION+x}" = x ] && action=$APPLE_DEV_ACTION
+[ "${APPLE_DEV_PROJECT+x}" = x ] && project=$APPLE_DEV_PROJECT
+[ "${APPLE_DEV_WORKSPACE+x}" = x ] && workspace=$APPLE_DEV_WORKSPACE
+[ "${APPLE_DEV_DESTINATION+x}" = x ] && destination=$APPLE_DEV_DESTINATION
+[ "${APPLE_DEV_CONFIGURATION+x}" = x ] && configuration=$APPLE_DEV_CONFIGURATION
+[ "${APPLE_DEV_ARTIFACTS+x}" = x ] && artifacts=$APPLE_DEV_ARTIFACTS
+
+[ "$env_host_set" = x ] && host=$env_host
+[ "$env_repo_set" = x ] && repository=$env_repo
+[ "$env_revision_set" = x ] && revision=$env_revision
+[ "$env_scheme_set" = x ] && scheme=$env_scheme
+[ "$env_action_set" = x ] && action=$env_action
+[ "$env_project_set" = x ] && project=$env_project
+[ "$env_workspace_set" = x ] && workspace=$env_workspace
+[ "$env_destination_set" = x ] && destination=$env_destination
+[ "$env_configuration_set" = x ] && configuration=$env_configuration
+[ "$env_artifacts_set" = x ] && artifacts=$env_artifacts
+[ "$env_config_set" = x ] && config_file=$env_config
+MAX_RESULT_ARCHIVE_BYTES=$(lower_limit "$HARD_MAX_RESULT_ARCHIVE_BYTES" APPLE_BUILD_TEST_MAX_ARCHIVE_BYTES)
+MAX_RESULT_MEMBERS=$(lower_limit "$HARD_MAX_RESULT_MEMBERS" APPLE_BUILD_TEST_MAX_MEMBERS)
+MAX_RESULT_EXPANDED_BYTES=$(lower_limit "$HARD_MAX_RESULT_EXPANDED_BYTES" APPLE_BUILD_TEST_MAX_EXPANDED_BYTES)
+MAX_RESULT_MEMBER_BYTES=$(lower_limit "$HARD_MAX_RESULT_MEMBER_BYTES" APPLE_BUILD_TEST_MAX_MEMBER_BYTES)
+MAX_BUILD_LOG_BYTES=$(lower_limit "$HARD_MAX_BUILD_LOG_BYTES" APPLE_BUILD_TEST_MAX_LOG_BYTES)
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -r|--repository) [ "$#" -ge 2 ] || die "$1 requires a path"; repository=$2; shift 2 ;;
+        --revision) [ "$#" -ge 2 ] || die "$1 requires a value"; revision=$2; shift 2 ;;
+        --scheme) [ "$#" -ge 2 ] || die "$1 requires a value"; scheme=$2; shift 2 ;;
+        --action) [ "$#" -ge 2 ] || die "$1 requires a value"; action=$2; shift 2 ;;
+        --project) [ "$#" -ge 2 ] || die "$1 requires a path"; project=$2; shift 2 ;;
+        --workspace) [ "$#" -ge 2 ] || die "$1 requires a path"; workspace=$2; shift 2 ;;
+        --destination) [ "$#" -ge 2 ] || die "$1 requires a value"; destination=$2; shift 2 ;;
+        --configuration) [ "$#" -ge 2 ] || die "$1 requires a value"; configuration=$2; shift 2 ;;
+        --artifacts) [ "$#" -ge 2 ] || die "$1 requires a path"; artifacts=$2; shift 2 ;;
+        --config) [ "$#" -ge 2 ] || die "$1 requires a path"; config_file=$2; shift 2 ;;
+        --host) [ "$#" -ge 2 ] || die "$1 requires a value"; host=$2; shift 2 ;;
+        --dry-run) dry_run=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --)
+            shift
+            [ "$#" -le 1 ] || die "only one positional repository is allowed"
+            [ "$#" -eq 0 ] || repository=$1
+            shift "$#"
+            ;;
+        -*) die "unknown option: $1" ;;
+        *) [ -z "$repository" ] || die "repository specified more than once"; repository=$1; shift ;;
+    esac
+done
+
+valid_host "$host" || die "host must be one non-option SSH config alias"
+valid_text "$revision" || die "revision is empty or contains a newline"
+valid_text "$scheme" || die "scheme is required and cannot contain a newline"
+case "$action" in build|test) ;; *) die "action must be build or test" ;; esac
+if [ -n "$project" ] && [ -n "$workspace" ]; then
+    die "exactly one project or workspace is required"
+fi
+if [ -n "$project" ]; then
+    valid_selector "$project" || die "project must be a canonical relative path"
+    case "$project" in *.xcodeproj) ;; *) die "project must end in .xcodeproj" ;; esac
+elif [ -n "$workspace" ]; then
+    valid_selector "$workspace" || die "workspace must be a canonical relative path"
+    case "$workspace" in *.xcworkspace) ;; *) die "workspace must end in .xcworkspace" ;; esac
+else
+    die "exactly one project or workspace is required"
+fi
+[ -z "$destination" ] || valid_text "$destination" || die "destination cannot contain a newline"
+[ -z "$configuration" ] || valid_text "$configuration" || die "configuration cannot contain a newline"
+valid_text "$artifacts" || die "artifact path is empty or contains a newline"
+valid_text "$repository" || die "repository path is empty or contains a newline"
+[ -d "$repository" ] || die "repository is not a directory"
+
+repo_root=$(CDPATH='' cd -- "$repository" 2>/dev/null && pwd -P) || die "cannot access repository"
+git_safe -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not a Git repository"
+repo_root=$(git_safe -C "$repo_root" rev-parse --show-toplevel) || die "cannot determine repository root"
+[ -z "$(git_safe -C "$repo_root" status --porcelain=v1 --untracked-files=all)" ] || die "repository has tracked, staged, or untracked changes"
+object_format=$(git_safe -C "$repo_root" rev-parse --show-object-format 2>/dev/null || printf 'sha1\n')
+[ "$object_format" = sha1 ] || die "protocol v1 supports only SHA-1 repositories"
+sha=$(git_safe -C "$repo_root" rev-parse --verify --end-of-options "$revision^{commit}" 2>/dev/null) || die "revision is not a commit"
+case "$sha" in ????????) die "Git returned a shortened commit id" ;; esac
+case "$sha" in *[!0-9a-f]*|???????????????????????????????????????|?????????????????????????????????????????) die "Git returned an invalid commit id" ;; esac
+origin=$(git_safe -C "$repo_root" config --get remote.origin.url 2>/dev/null) || die "origin remote is not configured"
+valid_text "$origin" || die "origin URL is empty or contains a newline"
+
+temp_root=$(mktemp -d "${TMPDIR:-/tmp}/apple-build-controller.XXXXXX") || die "cannot create temporary directory"
+proof_repo=$temp_root/proof.git
+verify_repo=$temp_root/verify.git
+bundle=$temp_root/request/repository.bundle
+manifest=$temp_root/request/manifest.json
+request_archive=$temp_root/request.tar.gz
+mkdir -p "$temp_root/request"
+
+git_safe init --bare -q "$proof_repo"
+git_safe -C "$proof_repo" remote add origin "$origin"
+if ! git_safe -C "$proof_repo" fetch --quiet --no-tags --no-write-fetch-head --force origin \
+    '+refs/heads/*:refs/proof/heads/*' '+refs/tags/*:refs/proof/tags/*'; then
+    die "cannot fetch fresh branches and tags from origin"
+fi
+git_safe -C "$proof_repo" cat-file -e "$sha^{commit}" 2>/dev/null || die "commit is not available from the freshly fetched origin"
+refs_file=$temp_root/proof-refs
+ git_safe -C "$proof_repo" for-each-ref --format='%(refname)' refs/proof/heads refs/proof/tags >"$refs_file"
+published=false
+while IFS= read -r proof_ref; do
+    [ -n "$proof_ref" ] || continue
+    if proof_tip=$(git_safe -C "$proof_repo" rev-parse --verify "$proof_ref^{commit}" 2>/dev/null); then
+        set +e
+        git_safe -C "$proof_repo" merge-base --is-ancestor "$sha" "$proof_tip" >/dev/null 2>&1
+        ancestor_status=$?
+        set -e
+        case "$ancestor_status" in
+            0) published=true; break ;;
+            1) ;;
+            *) die "origin reachability proof failed" ;;
+        esac
+    fi
+done <"$refs_file"
+[ "$published" = true ] || die "commit is not reachable from a freshly fetched origin branch or tag"
+
+git_safe -C "$proof_repo" update-ref "$BUNDLE_REF" "$sha"
+git_safe -C "$proof_repo" bundle create --version=2 "$bundle" "$BUNDLE_REF"
+git_safe init --bare -q "$verify_repo"
+git_safe -C "$verify_repo" bundle verify "$bundle" >/dev/null
+git_safe -C "$verify_repo" fetch --quiet --no-tags "$bundle" "$BUNDLE_REF:$BUNDLE_REF"
+git_safe -C "$verify_repo" fsck --full --strict >/dev/null
+git_safe -C "$verify_repo" rev-parse --verify "$BUNDLE_REF^{commit}" | {
+    IFS= read -r bundled_sha
+    [ "$bundled_sha" = "$sha" ] || die "bundle does not resolve to the requested commit"
+}
+
+python3 - "$manifest" "$PROTOCOL_VERSION" "$sha" "$action" "$scheme" "$project" "$workspace" "$destination" "$configuration" <<'PY'
+import json
+import sys
+
+path, version, commit, action, scheme, project, workspace, destination, configuration = sys.argv[1:]
+data = {
+    "protocol_version": int(version),
+    "commit": commit,
+    "action": action,
+    "scheme": scheme,
+}
+data["project" if project else "workspace"] = project or workspace
+if destination:
+    data["destination"] = destination
+if configuration:
+    data["configuration"] = configuration
+with open(path, "w", encoding="utf-8", newline="\n") as stream:
+    json.dump(data, stream, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    stream.write("\n")
+PY
+
+python3 - "$request_archive" "$manifest" "$bundle" <<'PY'
+import os
+import tarfile
+import sys
+
+archive, manifest, bundle = sys.argv[1:]
+with tarfile.open(archive, "w:gz", format=tarfile.USTAR_FORMAT) as output:
+    for name, path in (("manifest.json", manifest), ("repository.bundle", bundle)):
+        info = output.gettarinfo(path, arcname=name)
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mode = 0o600
+        with open(path, "rb") as stream:
+            output.addfile(info, stream)
+PY
+
+printf 'apple-build: prepared protocol v%s request for commit %s\n' "$PROTOCOL_VERSION" "$sha" >&2
+if [ "$dry_run" = true ]; then
+    printf 'apple-build: fixed remote invocation: ssh %s apple-build-worker\n' "$host" >&2
+    exit 0
+fi
+
+mkdir -p "$artifacts" || die "cannot create artifact directory"
+[ ! -L "$artifacts" ] || die "artifact directory cannot be a symbolic link"
+artifact_dir=$(CDPATH='' cd -- "$artifacts" 2>/dev/null && pwd -P) || die "cannot access artifact directory"
+result_temp=$(mktemp "$artifact_dir/.apple-build-result.XXXXXX") || die "cannot create artifact staging file"
+transport_temp=$(mktemp "$artifact_dir/.apple-build-transport.XXXXXX") || die "cannot create transport log"
+
+cat >"$temp_root/bounded-result-sink.py" <<'PY'
+import sys
+
+path, limit_text = sys.argv[1:]
+limit = int(limit_text)
+stored = 0
+overflow = False
+with open(path, "wb") as output:
+    while True:
+        chunk = sys.stdin.buffer.read(65536)
+        if not chunk:
+            break
+        remaining = max(0, limit - stored)
+        if remaining:
+            output.write(chunk[:remaining])
+            stored += min(len(chunk), remaining)
+        if len(chunk) > remaining:
+            overflow = True
+raise SystemExit(1 if overflow else 0)
+PY
+set +e
+ssh "$host" apple-build-worker <"$request_archive" 2>"$transport_temp" | \
+    python3 "$temp_root/bounded-result-sink.py" "$result_temp" "$MAX_RESULT_ARCHIVE_BYTES"
+pipeline_status=("${PIPESTATUS[@]}")
+ssh_status=${pipeline_status[0]}
+sink_status=${pipeline_status[1]}
+set -e
+
+validated_status_file=$temp_root/validated-status
+if ! python3 - "$result_temp" "$manifest" "$sha" "$action" "$ssh_status" "$sink_status" "$validated_status_file" "$MAX_RESULT_ARCHIVE_BYTES" "$MAX_RESULT_MEMBERS" "$MAX_RESULT_EXPANDED_BYTES" "$MAX_RESULT_MEMBER_BYTES" "$MAX_MANIFEST_BYTES" "$MAX_BUILD_LOG_BYTES" <<'PY'
+import json
+import os
+import re
+import sys
+import tarfile
+
+(
+    archive, expected_manifest_path, expected_sha, expected_action,
+    ssh_status_text, sink_status_text, status_path, archive_limit_text,
+    member_limit_text, expanded_limit_text, individual_limit_text,
+    manifest_limit_text, log_limit_text,
+) = sys.argv[1:]
+archive_limit = int(archive_limit_text)
+member_limit = int(member_limit_text)
+expanded_limit = int(expanded_limit_text)
+individual_limit = int(individual_limit_text)
+manifest_limit = int(manifest_limit_text)
+log_limit = int(log_limit_text)
+
+class InvalidResult(Exception):
+    pass
+
+def strict_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise InvalidResult(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+def load_json(raw, label):
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=strict_object)
+    except (UnicodeDecodeError, json.JSONDecodeError, InvalidResult) as error:
+        raise InvalidResult(f"invalid {label}: {error}")
+
+def read_bounded(stream, limit, label):
+    chunks = []
+    total = 0
+    while True:
+        chunk = stream.read(min(65536, limit + 1 - total))
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > limit:
+            raise InvalidResult(f"{label} exceeds size limit")
+
+try:
+    if int(sink_status_text) != 0:
+        raise InvalidResult("bounded result sink rejected oversized output")
+    if os.stat(archive).st_size > archive_limit:
+        raise InvalidResult("result archive exceeds compressed size limit")
+    with open(expected_manifest_path, "rb") as stream:
+        expected_manifest = load_json(read_bounded(stream, manifest_limit, "expected manifest"), "expected manifest")
+    seen = set()
+    fixed = {"manifest.json", "metadata.json", "xcodebuild.log"}
+    result_seen = False
+    members = 0
+    expanded = 0
+    manifest_member = None
+    metadata_member = None
+    with tarfile.open(archive, "r:gz") as result:
+        for member in result:
+            members += 1
+            if members > member_limit:
+                raise InvalidResult("result archive exceeds member count limit")
+            name = member.name
+            if name in seen:
+                raise InvalidResult(f"duplicate archive member: {name}")
+            seen.add(name)
+            if member.size < 0 or member.size > individual_limit:
+                raise InvalidResult(f"result member exceeds individual size limit: {name}")
+            expanded += member.size
+            if expanded > expanded_limit:
+                raise InvalidResult("result archive exceeds expanded size limit")
+            if not name or name.startswith("/") or name.startswith("./") or "//" in name:
+                raise InvalidResult(f"noncanonical archive member: {name}")
+            parts = name.rstrip("/").split("/")
+            if any(part in ("", ".", "..") for part in parts):
+                raise InvalidResult(f"unsafe archive member: {name}")
+            if name in fixed:
+                if not member.isfile():
+                    raise InvalidResult(f"fixed member is not a regular file: {name}")
+                fixed_limit = log_limit if name == "xcodebuild.log" else manifest_limit
+                if member.size > fixed_limit:
+                    raise InvalidResult(f"fixed member exceeds size limit: {name}")
+                if name == "manifest.json":
+                    manifest_member = member
+                elif name == "metadata.json":
+                    metadata_member = member
+            elif name == "Result.xcresult" or name.startswith("Result.xcresult/"):
+                result_seen = True
+                if not (member.isfile() or member.isdir()):
+                    raise InvalidResult(f"unsafe result-bundle member: {name}")
+            else:
+                raise InvalidResult(f"extra archive member: {name}")
+        if not fixed.issubset(seen):
+            raise InvalidResult("result archive is missing required members")
+        if manifest_member is None or metadata_member is None:
+            raise InvalidResult("result archive contains unreadable metadata")
+        returned_manifest_stream = result.extractfile(manifest_member)
+        metadata_stream = result.extractfile(metadata_member)
+        if returned_manifest_stream is None or metadata_stream is None:
+            raise InvalidResult("result archive contains unreadable metadata")
+        returned_manifest = load_json(
+            read_bounded(returned_manifest_stream, manifest_limit, "returned manifest"),
+            "returned manifest",
+        )
+        metadata = load_json(read_bounded(metadata_stream, manifest_limit, "metadata"), "metadata")
+    if returned_manifest != expected_manifest:
+        raise InvalidResult("returned manifest does not match request")
+    metadata_keys = {
+        "protocol_version", "commit", "action",
+        "xcodebuild_exit_status", "result_bundle_present",
+    }
+    if type(metadata) is not dict or set(metadata) != metadata_keys:
+        raise InvalidResult("metadata schema mismatch")
+    if type(metadata["protocol_version"]) is not int or metadata["protocol_version"] != 1:
+        raise InvalidResult("metadata protocol mismatch")
+    if metadata["commit"] != expected_sha or not re.fullmatch(r"[0-9a-f]{40}", metadata["commit"]):
+        raise InvalidResult("metadata commit mismatch")
+    if metadata["action"] != expected_action:
+        raise InvalidResult("metadata action mismatch")
+    build_status = metadata["xcodebuild_exit_status"]
+    if type(build_status) is not int or not 0 <= build_status <= 255:
+        raise InvalidResult("invalid xcodebuild status")
+    if type(metadata["result_bundle_present"]) is not bool or metadata["result_bundle_present"] != result_seen:
+        raise InvalidResult("result-bundle metadata mismatch")
+    # The SSH channel reserves 125 for transport failure and 129/130/143 for
+    # controller signals. Preserve the raw Xcode status in metadata, but map a
+    # collision to Xcode's generic build-failure status for the shell caller.
+    client_status = 65 if build_status in {125, 129, 130, 143} else build_status
+    if client_status != int(ssh_status_text):
+        raise InvalidResult("SSH status does not match xcodebuild status")
+    with open(status_path, "w", encoding="ascii") as stream:
+        stream.write(f"{client_status}\n")
+except (InvalidResult, OSError, tarfile.TarError, EOFError) as error:
+    print(f"apple-build: invalid result archive: {error}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+    cat "$transport_temp" >&2 || true
+    die_transport "worker did not return a valid result archive (SSH status $ssh_status)"
+fi
+
+IFS= read -r build_status <"$validated_status_file"
+final_archive=$artifact_dir/apple-build-$sha.tar.gz
+final_log=$artifact_dir/apple-build-$sha.transport.log
+log_stage=$(mktemp "$artifact_dir/.apple-build-log.XXXXXX") || die "cannot stage transport log"
+cat "$transport_temp" >"$log_stage"
+mv -f "$log_stage" "$final_log"
+mv -f "$result_temp" "$final_archive"
+result_temp=
+rm -f "$transport_temp"
+transport_temp=
+printf 'APPLE_DEV_LOCAL_ARCHIVE_PATH=%s\n' "$final_archive"
+printf 'APPLE_DEV_TRANSPORT_LOG_PATH=%s\n' "$final_log" >&2
+exit "$build_status"
