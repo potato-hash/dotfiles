@@ -1,0 +1,12 @@
+# Generic remote Apple development defaults.
+# CLI flags override environment variables, which override these values.
+APPLE_DEV_HOST="apple-dev"
+APPLE_DEV_FREE_DISK_GB="20"
+APPLE_DEV_STALE_DAYS="14"
+APPLE_DEV_BUILD_ROOT="$HOME/Library/Developer/Xcode/DerivedData"
+# Worker jobs are isolated from the health-check DerivedData root.
+APPLE_DEV_WORK_ROOT="$HOME/Library/Caches/apple-build-worker"
+# Set only when a specific Tart VM should be checked.
+APPLE_DEV_TART_VM=""
+# Optional read-only command, for example: "omp health"
+APPLE_DEV_HINDSIGHT_HEALTH_COMMAND=""

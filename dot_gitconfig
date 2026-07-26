@@ -1,0 +1,9 @@
+[user]
+	name = potato-hash
+	email = 66528142+potato-hash@users.noreply.github.com
+[credential "https://github.com"]
+	helper =
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !/opt/homebrew/bin/gh auth git-credential

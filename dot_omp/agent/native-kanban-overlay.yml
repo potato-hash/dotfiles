@@ -1,0 +1,11 @@
+# OMP v17.0.3 Kanban overlay. Removed v16 MCP discovery settings.
+advisor:
+  enabled: true
+  subagents: true
+memory:
+  backend: off
+hindsight:
+  autoRecall: false
+  autoRetain: false
+mcp:
+  enableProjectConfig: false

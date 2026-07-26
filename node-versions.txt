@@ -1,0 +1,5 @@
+# nvm node versions installed
+node v22.23.1
+node v24.18.0
+# default
+lts/*

@@ -1,0 +1,19 @@
+# OMP v17.0.3 partner profile verified 2026-07-17.
+# task.prewalk remains unset intentionally; enable per-agent prewalk only after
+# deciding the extra frontier-planning cost is warranted for child agents.
+modelRoles:
+  default: openai-codex/gpt-5.6-sol:medium
+  smol: openai-codex/gpt-5.6-luna:low
+  slow: openai-codex/gpt-5.6-sol:xhigh
+  plan: openai-codex/gpt-5.6-sol:xhigh
+  task: openai-codex/gpt-5.6-luna:medium
+  advisor: openai-codex/gpt-5.6-terra:high
+  designer: openai-codex/gpt-5.6-sol:high
+  commit: openai-codex/gpt-5.6-luna:minimal
+  tiny: openai-codex/gpt-5.6-luna:minimal
+defaultThinkingLevel: medium
+prewalk:
+  enabled: true
+task:
+  isolation:
+    mode: auto
