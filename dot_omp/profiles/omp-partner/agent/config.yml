@@ -1,16 +1,26 @@
 modelRoles:
-  default: openai-codex/gpt-5.6-sol:medium
-  smol: openai-codex/gpt-5.6-luna:low
-  slow: openai-codex/gpt-5.6-sol:xhigh
-  plan: openai-codex/gpt-5.6-sol:xhigh
-  task: openai-codex/gpt-5.6-luna:medium
-  advisor: openai-codex/gpt-5.6-terra:high
-  designer: openai-codex/gpt-5.6-sol:high
+  default: openai-codex/gpt-5.6-sol:max
+  smol: openai-codex/gpt-5.6-luna:max
+  slow: openai-codex/gpt-5.6-sol:max
+  plan: openai-codex/gpt-5.6-sol:max
+  task: openai-codex/gpt-5.6-luna:max
+  advisor: openai-codex/gpt-5.6-sol:max
+  designer: openai-codex/gpt-5.6-sol:max
   commit: openai-codex/gpt-5.6-luna:minimal
   tiny: openai-codex/gpt-5.6-luna:minimal
 defaultThinkingLevel: medium
 prewalk:
   enabled: true
+advisor:
+  enabled: true
+  subagents: false
+  syncBacklog: "1"
 task:
   isolation:
     mode: auto
+compaction:
+  strategy: context-full
+  remoteEnabled: true
+  remoteStreamingV2Enabled: true
+computer:
+  enabled: true
