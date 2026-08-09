@@ -2,6 +2,12 @@
 
 Automated setup for macOS and Omarchy Linux.
 
+## Third-party material
+
+The included Catppuccin theme for Zen Browser is distributed under the MIT
+License. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for its source,
+covered files, copyright, and license text.
+
 ## macOS Setup
 
 1. Complete macOS OOBE and sign into the App Store
