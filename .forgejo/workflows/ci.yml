@@ -1,0 +1,13 @@
+name: Dotfiles checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  apple-command-contracts:
+    runs-on: python-ci
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v4
+      - name: Run portable Apple command contract tests
+        run: bash tests/test_apple_commands.sh
