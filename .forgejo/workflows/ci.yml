@@ -3,6 +3,7 @@ name: Dotfiles checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   apple-command-contracts:
