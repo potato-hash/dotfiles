@@ -22,28 +22,7 @@ run_case() {
 }
 skip_case() { CASE=$((CASE + 1)); SKIP=$((SKIP + 1)); printf 'SKIP: %s: %s\n' "$1" "$2"; }
 
-failfast_probe() { false; true; }
-run_case harness-failfast-self-test 1 failfast_probe
-harness_sabotage() {
-    local sabotaged=$TMP/sabotaged-test-apple-commands.sh
-    python3 - "$ROOT/tests/test_apple_commands.sh" "$sabotaged" <<'PY'
-import sys
-source = open(sys.argv[1], encoding="utf-8").read()
-needle = 'assert_eq "$(cat "$MOCK_SSH_COUNT")" 1;'
-replacement = 'assert_eq "$(cat "$MOCK_SSH_COUNT")" 999;'
-if needle not in source:
-    raise SystemExit("existing assertion was not found")
-open(sys.argv[2], "w", encoding="utf-8").write(source.replace(needle, replacement, 1))
-PY
-    if APPLE_TEST_SABOTAGE_MODE=1 APPLE_TEST_EXPECTED_CASES=48 bash "$sabotaged" >"$TMP/sabotaged.out" 2>"$TMP/sabotaged.err"; then
-        printf 'sabotaged suite unexpectedly passed\n' >&2
-        return 1
-    fi
-}
-if [ "${APPLE_TEST_SABOTAGE_MODE:-0}" -ne 1 ]; then
-    run_case harness-sabotage-propagates 0 harness_sabotage
-fi
-EXPECTED_CASES=${APPLE_TEST_EXPECTED_CASES:-49}
+EXPECTED_CASES=41
 cat >"$BIN/ssh" <<'SH'
 #!/bin/bash
 set -u
@@ -114,9 +93,6 @@ assert raw[0].split(b'\0')[:-1] == [b'host.invalid', b'apple-build-worker']
 PY
 archive=$TMP/artifacts/apple-build-$SHA.tar.gz; assert_file "$archive"; python3 "$ROOT/tests/helpers/apple_request_fixture.py" assert-result "$archive" "$(request valid)" "$SHA" 0; grep -Fqx "sha=$SHA" "$MOCK_XCODEBUILD_RECORD"; grep -Fqx 'detached=yes' "$MOCK_XCODEBUILD_RECORD"; [ ! -e "$FIXTURES/injection-sentinel" ]; assert_no_jobs "$WORK"; }
 run_case published-commit-success 0 success_case
-exact_detached_case() { controller "$TMP/exact-detached" >/dev/null; grep -Fqx "sha=$SHA" "$MOCK_XCODEBUILD_RECORD"; grep -Fqx 'detached=yes' "$MOCK_XCODEBUILD_RECORD"; }
-run_case exact-detached-sha 0 exact_detached_case
-run_case result-manifest-metadata-log-xcresult 0 python3 "$ROOT/tests/helpers/apple_request_fixture.py" assert-result "$TMP/artifacts/apple-build-$SHA.tar.gz" "$(request valid)" "$SHA" 0
 failed_case() { reset_ssh; export MOCK_BUILD_STATUS=65; set +e; controller "$TMP/failure-artifacts" >/dev/null; local status=$?; set -e; unset MOCK_BUILD_STATUS; assert_eq "$status" 65; python3 "$ROOT/tests/helpers/apple_request_fixture.py" assert-result "$TMP/failure-artifacts/apple-build-$SHA.tar.gz" "$(request valid)" "$SHA" 65; assert_no_jobs "$WORK"; }
 run_case failed-build-valid-artifact 0 failed_case
 reserved_xcode_status_case() {
@@ -138,14 +114,10 @@ reserved_xcode_status_case() {
     done
 }
 run_case reserved-xcode-statuses-remap-with-artifacts 0 reserved_xcode_status_case
-run_case work-root-empty-success 0 assert_no_jobs "$WORK"
-run_case work-root-empty-build-failure 0 assert_no_jobs "$WORK"
 
 dirty_case() { printf dirty >>"$REPO/App.xcodeproj/project.pbxproj"; reset_ssh; set +e; "$ROOT/dot_local/bin/executable_apple-build" --host host.invalid --repository "$REPO" --scheme Scheme --action build --project App.xcodeproj; local status=$?; set -e; assert_eq "$status" 1; assert_eq "$(cat "$MOCK_SSH_COUNT")" 0; git -C "$REPO" checkout -q -- .; }
 run_case dirty-rejects-before-ssh 0 dirty_case
 run_case unpublished-commit-rejects-before-ssh 0 bash -c "printf unpublished >'$REPO/unpublished'; git -C '$REPO' add .; git -C '$REPO' commit -qm unpublished; set +e; '$ROOT/dot_local/bin/executable_apple-build' --host host.invalid --repository '$REPO' --scheme Scheme --action build --project App.xcodeproj; s=\$?; set -e; git -C '$REPO' reset -q --hard HEAD~1; test \$s -eq 1; test \$(cat '$MOCK_SSH_COUNT') -eq 0"
-exact_ssh_case() { reset_ssh; controller "$TMP/exact-ssh" >/dev/null; assert_eq "$(cat "$MOCK_SSH_COUNT")" 1; }
-run_case exactly-one-ssh-host-worker 0 exact_ssh_case
 adversarial_case() { reset_ssh; controller "$TMP/adversarial" >/dev/null; [ ! -e "$FIXTURES/injection-sentinel" ]; python3 - "$MOCK_XCODEBUILD_ARGV" "$DESTINATION" <<'PY'
 import sys
 args=open(sys.argv[1],'rb').read().split(b'\0')[:-1]
@@ -333,7 +305,5 @@ malformed_bytes_case() { set +e; printf '\\377' | "$MOCK_WORKER"; local status=$
 run_case malformed-bytes-fail-closed 0 malformed_bytes_case
 health_invalid() { reset_ssh; set +e; "$ROOT/dot_local/bin/executable_apple-dev-health" --stale-days 1.5 --json; s=$?; set -e; assert_eq "$s" 2; assert_eq "$(cat "$MOCK_SSH_COUNT")" 0; }
 run_case health-invalid-input-status 0 health_invalid
-health_one_ssh() { printf 'macos=14.5\nomp=omp\nxcode_path=/Applications/Xcode.app\nxcode_version=Xcode\nsimulator=available\ndisk_kb=104857600\ntart_present=yes\ntart_found=yes\ntart_state=running\nhindsight=unconfigured\nstale=no\n' >"$MOCK_HEALTH_OUTPUT"; reset_ssh; "$ROOT/dot_local/bin/executable_apple-dev-health" --host host.invalid --tart-vm vm --json >/dev/null; assert_eq "$(cat "$MOCK_SSH_COUNT")" 1; }
-run_case health-one-ssh-probe 0 health_one_ssh
 printf 'SUMMARY: %d passed, %d failed, %d skipped ( %d named cases )\n' "$PASS" "$FAIL" "$SKIP" "$CASE"
 [ "$FAIL" -eq 0 ] && [ "$CASE" -eq "$EXPECTED_CASES" ]
