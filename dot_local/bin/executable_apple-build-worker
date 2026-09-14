@@ -73,23 +73,19 @@ case "$WORK_ROOT" in /*) ;; *) fail "work root must be absolute" ;; esac
 # state rather than risking deletion of a live build.
 for stale in "$WORK_ROOT"/job.*; do
     [ -d "$stale" ] || continue
-    case "$stale" in
-        "$WORK_ROOT"/job.*)
-            live=false
-            if IFS= read -r worker_pid <"$stale/.apple-build-worker.pid" 2>/dev/null; then
-                case "$worker_pid" in
-                    ""|*[!0-9]*|0) ;;
-                    *)
-                        if kill -0 "$worker_pid" 2>/dev/null || ps -p "$worker_pid" >/dev/null 2>&1; then
-                            live=true
-                        fi
-                        ;;
-                esac
-            fi
-            [ "$live" = true ] && continue
-            if find "$stale" -prune -mtime +1 -exec rm -rf {} \; 2>/dev/null; then :; fi
-            ;;
-    esac
+    live=false
+    if IFS= read -r worker_pid <"$stale/.apple-build-worker.pid" 2>/dev/null; then
+        case "$worker_pid" in
+            ""|*[!0-9]*|0) ;;
+            *)
+                if kill -0 "$worker_pid" 2>/dev/null || ps -p "$worker_pid" >/dev/null 2>&1; then
+                    live=true
+                fi
+                ;;
+        esac
+    fi
+    [ "$live" = true ] && continue
+    find "$stale" -prune -mtime +1 -exec rm -rf {} \; 2>/dev/null || true
 done
 JOB=$(mktemp -d "$WORK_ROOT/job.XXXXXX") || fail "cannot create job directory"
 printf '%s\n' "$$" >"$JOB/.apple-build-worker.pid" || fail "cannot mark live job"
@@ -194,11 +190,22 @@ mkdir -p "$JOB/repo"
 git -C "$JOB/repo" init -q || fail "cannot initialize repository"
 git -C "$JOB/repo" fetch -q --no-tags "$JOB/repository.bundle" refs/apple-build/request:refs/apple-build/request || fail "bundle fetch failed"
 git -C "$JOB/repo" fsck --full --strict >/dev/null 2>&1 || fail "bundle integrity check failed"
-commit=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-print(json.load(open(sys.argv[1]))['commit'])
+/usr/bin/python3 - "$JOB" <<'PY' || fail "cannot read build fields"
+import json, os, sys
+
+job = sys.argv[1]
+manifest = json.load(open(os.path.join(job, 'validated-fields.json')))
+for key in ('commit', 'scheme', 'action', 'project', 'workspace', 'destination', 'configuration'):
+    with open(os.path.join(job, 'field.' + key), 'w') as out:
+        out.write(manifest.get(key, '') + '\n')
 PY
-)
+IFS= read -r commit <"$JOB/field.commit"
+IFS= read -r scheme <"$JOB/field.scheme"
+IFS= read -r action <"$JOB/field.action"
+IFS= read -r project <"$JOB/field.project"
+IFS= read -r workspace <"$JOB/field.workspace"
+IFS= read -r destination <"$JOB/field.destination"
+IFS= read -r configuration <"$JOB/field.configuration"
 git -C "$JOB/repo" cat-file -e "$commit^{commit}" || fail "requested commit missing from bundle"
 git -C "$JOB/repo" checkout -q --detach "$commit" || fail "cannot checkout requested commit detached"
 checkout=$JOB/repo
@@ -211,36 +218,6 @@ if path != root and not path.startswith(root + os.sep): raise SystemExit(1)
 if not os.path.exists(path): raise SystemExit(1)
 PY
 
-scheme=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-print(json.load(open(sys.argv[1]))['scheme'])
-PY
-)
-action=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-print(json.load(open(sys.argv[1]))['action'])
-PY
-)
-project=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-m=json.load(open(sys.argv[1])); print(m.get('project',''))
-PY
-)
-workspace=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-m=json.load(open(sys.argv[1])); print(m.get('workspace',''))
-PY
-)
-destination=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-m=json.load(open(sys.argv[1])); print(m.get('destination',''))
-PY
-)
-configuration=$(/usr/bin/python3 - "$JOB/validated-fields.json" <<'PY'
-import json,sys
-m=json.load(open(sys.argv[1])); print(m.get('configuration',''))
-PY
-)
 mkdir -p "$JOB/DerivedData" "$JOB/result"
 cmd=(xcodebuild)
 if [ -n "$project" ]; then cmd+=( -project "$checkout/$project" ); else cmd+=( -workspace "$checkout/$workspace" ); fi
