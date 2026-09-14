@@ -6,6 +6,3 @@ if [[ -f ~/.local/share/omarchy/default/bash/rc ]]; then
     source ~/.local/share/omarchy/default/bash/rc
 fi
 
-# User exports, aliases, and functions.
-#
-# alias p='python'
