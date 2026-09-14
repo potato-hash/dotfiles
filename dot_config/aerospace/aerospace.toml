@@ -10,14 +10,6 @@ after-startup-command = [
   'exec-and-forget borders active_color="gradient(top_left=0xffcba6f7,bottom_right=0xfff5c2e7)" inactive_color=0xff313244 width=5.0 style=round hidpi=on',
 ]
 
-# Normalizations (keep layout tree tidy)
-enable-normalization-flatten-containers = true
-enable-normalization-opposite-orientation-for-nested-containers = true
-
-# Layout defaults
-default-root-container-layout = 'tiles'
-default-root-container-orientation = 'auto'
-accordion-padding = 30
 
 # Mouse follows focus
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']

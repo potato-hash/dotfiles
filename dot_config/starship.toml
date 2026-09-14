@@ -5,8 +5,6 @@ palette = "catppuccin_mocha"
 # Timeout for commands that starship runs (ms)
 command_timeout = 1000
 
-# Newline between prompts
-add_newline = true
 
 # Prompt format — keep it short for mobile
 format = """$directory$git_branch$git_status$character"""
@@ -48,41 +46,10 @@ format = "[$duration]($style) "
 style = "bold yellow"
 
 [battery]
-disabled = false
 [[battery.display]]
 threshold = 30
 style = "bold red"
 
-# Disable modules that add clutter on mobile
-[package]
-disabled = true
-
-[nodejs]
-disabled = true
-
-[python]
-disabled = true
-
-[rust]
-disabled = true
-
-[golang]
-disabled = true
-
-[java]
-disabled = true
-
-[docker_context]
-disabled = true
-
-[aws]
-disabled = true
-
-[gcloud]
-disabled = true
-
-[kubernetes]
-disabled = true
 
 [palettes.catppuccin_mocha]
 rosewater = "#f5e0dc"

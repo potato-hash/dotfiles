@@ -1,4 +1,4 @@
-export PATH="$HOME/bin:$HOME/.claude/local:$PATH"
+export PATH="$HOME/bin:$PATH"
 
 # Zinit plugin manager (auto-install if missing)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
@@ -30,13 +30,10 @@ bindkey '^n' history-search-forward
 HISTSIZE=5000
 HISTFILE=~/.zsh_history
 SAVEHIST=$HISTSIZE
-HISTDUP=erase
-setopt appendhistory
 setopt sharehistory
 setopt hist_ignore_space
 setopt hist_ignore_all_dups
 setopt hist_save_no_dups
-setopt hist_ignore_dups
 setopt hist_find_no_dups
 
 # Completion styling
