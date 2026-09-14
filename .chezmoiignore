@@ -1,5 +1,4 @@
 Brewfile
-MANUAL_INSTALL.md
 README.md
 
 {{ if ne .chezmoi.os "darwin" }}

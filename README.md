@@ -57,11 +57,11 @@ The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `de
 
 ### macOS Packages (Brewfile)
 
-**CLI tools:** chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, mas, micro, mosh, python 3.13, ssh-copy-id, starship, tailscale, tmux, zoxide
+**CLI tools:** borders, chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, micro, mosh, starship, synergy-core, tailscale, tmux, zoxide
 
-**Apps (Homebrew):** BetterDisplay, Bitwarden, Claude, Discord, Ghostty, GrandPerspective, Hush, Obsidian, qBittorrent, Zed
+**Apps (Homebrew):** AeroSpace, BetterDisplay, Bitwarden, Claude, Claude Code, Discord, Ghostty, GrandPerspective, Hush, Iosevka, LocalSend, Obsidian, Zed, Zen
 
-**Apps (Mac App Store):** Amphetamine, Apple Developer, TestFlight, Wipr, Xcode
+**Mac App Store apps are installed manually** (mas requires re-auth per app): Amphetamine, Apple Developer, TestFlight, Xcode
 
 **Go:** tailscale + tailscaled
 
@@ -91,8 +91,6 @@ Removes: Chess, FaceTime, Freeform, GarageBand, Home, Image Playground, iMovie, 
 - **Storage:** no .DS_Store on network/USB drives
 - **Security:** immediate screen lock, firewall on, stealth mode on, secure keyboard entry in Terminal
 - **Misc:** Photos won't auto-launch on device connect
-
-## Manual Installs
 
 ## Remote Apple development
 
@@ -179,7 +177,6 @@ bootstrap.
 Then edit `~/.ssh/config` and the generated Apple development config as
 needed. No signing, CI, or application scaffolding is installed.
 
-A few apps need manual download — see [MANUAL_INSTALL.md](MANUAL_INSTALL.md).
 
 ## Updating
 
