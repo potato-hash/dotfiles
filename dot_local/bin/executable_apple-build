@@ -165,7 +165,6 @@ fi
 [ "$env_destination_set" = x ] && destination=$env_destination
 [ "$env_configuration_set" = x ] && configuration=$env_configuration
 [ "$env_artifacts_set" = x ] && artifacts=$env_artifacts
-[ "$env_config_set" = x ] && config_file=$env_config
 MAX_RESULT_ARCHIVE_BYTES=$(lower_limit "$HARD_MAX_RESULT_ARCHIVE_BYTES" APPLE_BUILD_TEST_MAX_ARCHIVE_BYTES)
 MAX_RESULT_MEMBERS=$(lower_limit "$HARD_MAX_RESULT_MEMBERS" APPLE_BUILD_TEST_MAX_MEMBERS)
 MAX_RESULT_EXPANDED_BYTES=$(lower_limit "$HARD_MAX_RESULT_EXPANDED_BYTES" APPLE_BUILD_TEST_MAX_EXPANDED_BYTES)
@@ -183,7 +182,7 @@ while [ "$#" -gt 0 ]; do
         --destination) [ "$#" -ge 2 ] || die "$1 requires a value"; destination=$2; shift 2 ;;
         --configuration) [ "$#" -ge 2 ] || die "$1 requires a value"; configuration=$2; shift 2 ;;
         --artifacts) [ "$#" -ge 2 ] || die "$1 requires a path"; artifacts=$2; shift 2 ;;
-        --config) [ "$#" -ge 2 ] || die "$1 requires a path"; config_file=$2; shift 2 ;;
+        --config) [ "$#" -ge 2 ] || die "$1 requires a path"; shift 2 ;;
         --host) [ "$#" -ge 2 ] || die "$1 requires a value"; host=$2; shift 2 ;;
         --dry-run) dry_run=true; shift ;;
         -h|--help) usage; exit 0 ;;

@@ -86,7 +86,7 @@ fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --json) json=true; shift ;;
-        --config) [ "$#" -ge 2 ] || die_usage "--config requires a path"; config_file=$2; shift 2 ;;
+        --config) [ "$#" -ge 2 ] || die_usage "--config requires a path"; shift 2 ;;
         --host) [ "$#" -ge 2 ] || die_usage "--host requires a value"; host=$2; shift 2 ;;
         --free-disk-gb) [ "$#" -ge 2 ] || die_usage "--free-disk-gb requires a value"; free_disk_gb=$2; shift 2 ;;
         --stale-days) [ "$#" -ge 2 ] || die_usage "--stale-days requires a value"; stale_days=$2; shift 2 ;;
