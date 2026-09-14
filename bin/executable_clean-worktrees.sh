@@ -201,7 +201,6 @@ for ((i=0; i<NUM_WORKTREES; i++)); do
             echo "    → FLAGGED: has uncommitted/untracked changes. Handle manually or use --force."
         fi
     elif [[ "$MERGED" == true ]]; then
-        MERGED_COUNT=$((MERGED_COUNT + 1))
         printf "  %-55s [MERGED — safe to remove]\n" "$WT_PATH"
         printf "  %-55s  branch: %s\n" "" "${WT_BRANCH:-none}"
 
