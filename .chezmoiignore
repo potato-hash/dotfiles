@@ -14,9 +14,6 @@ run_once_before_01-install-homebrew.sh
 run_once_before_02-brew-bundle.sh
 run_onchange_04-macos-settings.sh
 run_onchange_05-zen-browser-theme.sh
-{{ end }}
-
-{{ if ne .chezmoi.os "darwin" }}
 dot_local/bin/executable_apple-build-worker
 {{ end }}
 

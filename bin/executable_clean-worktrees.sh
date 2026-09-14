@@ -245,7 +245,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "◆ Summary"
 echo ""
 echo "  Total worktrees:    $NUM_WORKTREES"
-echo "  Merged (removed):   $REMOVED_COUNT"
+echo "  Removed:            $REMOVED_COUNT"
 echo "  Unmerged (flagged): $UNMERGED_COUNT"
 echo "  Dirty (flagged):    $DIRTY_COUNT"
 echo "  Flagged for manual: $FLAGGED_COUNT"
