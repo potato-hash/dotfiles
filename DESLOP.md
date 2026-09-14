@@ -25,6 +25,16 @@ Load-bearing code unless the recorded dependency has disappeared.
   entry — 2026-09-13, c15d072 — deleted stub referencing a `setup.sh` that
   never existed; README package lists corrected to match the Brewfile
   exactly.
+- Config dead-settings sweep — 2026-09-13, 08eff7a — zshrc (dead
+  `HISTDUP`, `appendhistory`/`hist_ignore_dups` subsumed, stale
+  `~/.claude/local` PATH entry), tmux (3 unused palette vars), starship
+  (`add_newline` default + 10 unreachable disabled modules), aerospace
+  (5 default-dup keys), hyprlock (3 default keys), waybar (dead
+  `#custom-voxtype` rules).
+- Ghostty + hypr input comment strip — 2026-09-13, 25dc9a2 — removed
+  Ghostty's 38-line stock header and `# this is a test`; removed
+  input.conf's six commented-out template blocks and a windowrule for
+  Alacritty/kitty/foot (installed nowhere in this repo).
 
 ## Untraceable
 
@@ -75,8 +85,9 @@ Load-bearing code unless the recorded dependency has disappeared.
   import; not fixed (out of deslop scope). Also `--help` prints `head -13`,
   truncating the header's final `# Templates:` line.
 - README drift (partially fixed in c15d072): package lists now match the
-  Brewfile. Remaining nit: README says `.config/zed/settings.json` while the
-  managed file is `private_settings.json` (chezmoi 0600 modifier).
+  Brewfile. (An earlier note claimed the zed path was wrong; false positive —
+  chezmoi's `private_` prefix applies `private_settings.json` as
+  `~/.config/zed/settings.json` with 0600, so README names the right target.)
 - `run_onchange_04-macos-settings.sh` prints "✓ Firewall enabled" /
   "✓ Stealth mode enabled" unconditionally even when the sudo command was
   skipped with a warning line. Cosmetic inconsistency only.
@@ -85,19 +96,10 @@ Load-bearing code unless the recorded dependency has disappeared.
 
 Ranked next targets:
 
-1. Config dead-settings sweep (ConfigSlop report, verified against tool
-   docs/defaults): `dot_zshrc` (dead `HISTDUP`, `appendhistory` subsumed by
-   `sharehistory`, `hist_ignore_dups` subsumed by `hist_ignore_all_dups`,
-   stale `~/.claude/local` PATH entry), `dot_tmux.conf` (3 unused palette
-   vars), `dot_config/starship.toml` (`add_newline` default + 10 unreachable
-   disabled-module blocks), `dot_config/ghostty/config` (34-line stock
-   comment header + `# this is a test`), `dot_config/aerospace/aerospace.toml`
-   (5 keys duplicating upstream defaults), `dot_config/hypr/input.conf`
-   (6 commented-out blocks, dead Alacritty/kitty/foot windowrule),
-   `dot_config/hypr/hyprlock.conf` (`monitor =` empty ×2, `shadow_passes = 0`
-   defaults), `dot_config/waybar/style.css` (dead `#custom-voxtype` rules).
-2. `bin/executable_clean-worktrees.sh` (286 LOC, one-shot import, ornamental
+1. `bin/executable_clean-worktrees.sh` (286 LOC, one-shot import, ornamental
    output) — assess for flattening; lowest confidence target.
+2. `dot_hermes/templates/new-project/` template bodies (`dot_gitignore`
+   40 lines — check for toolchain entries the scaffold never uses).
 3. `dot_config/git/config` `init.defaultBranch=master` — considered, kept
    (real effect: deterministic init branch); revisit only if Alan standardizes
    on another default.
@@ -111,6 +113,14 @@ Run 1 (2026-09-13, 735b245..c15d072):
 - test files: 2 → 2
 - test LOC: 644 → 614 (−30)
 - total tracked files: 53 → 51
+
+Run 2 (2026-09-13, 08eff7a..25dc9a2):
+
+- source files: 49 → 49
+- source LOC: 3709 → 3573 (−136)
+- test files / LOC: unchanged (2 / 614)
+- verification: `bash -n` on dot_zshrc, `tomllib` parse on both edited TOML
+  files, diff review; contract suite still 41/41 green.
 
 Verification: `bash -n` all touched shell scripts clean; contract suite
 41/41 green after every commit; `python3 -m py_compile` on remaining python;
