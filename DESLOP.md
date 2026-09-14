@@ -35,6 +35,11 @@ Load-bearing code unless the recorded dependency has disappeared.
   Ghostty's 38-line stock header and `# this is a test`; removed
   input.conf's six commented-out template blocks and a windowrule for
   Alacritty/kitty/foot (installed nowhere in this repo).
+- clean-worktrees + scaffold gitignore — 2026-09-13, 830b66b — dropped
+  write-only MERGED_COUNT; deduped `dist/` in the new-project gitignore
+  template. Verified behaviorally in a /tmp scratch repo (dry-run
+  classification, real merged-worktree removal, exit codes 1/0 as
+  documented).
 
 ## Untraceable
 
@@ -44,6 +49,10 @@ Load-bearing code unless the recorded dependency has disappeared.
   this repo cannot be ruled out from repo evidence. Searched: tree grep
   (`overlay`, exact filenames), full git history of `dot_omp/`. 24 lines
   total; left in place.
+- `bun-globals.txt`, `npm-globals.txt`, `node-versions.txt` — hand-maintained
+  manifests (3 "update JS global package manifests" commits), zero in-tree
+  consumers. Likely fed to a manual `npm i -g` flow; cannot confirm from repo
+  evidence. Left in place.
 - `dot_omp/agent/rules/use-firecrawl-extract.md` — standalone
   `alwaysApply: true` rule; loaded by OMP's rules-directory convention, not
   by any in-repo pointer (expected for convention-loaded files). Current per
@@ -96,11 +105,10 @@ Load-bearing code unless the recorded dependency has disappeared.
 
 Ranked next targets:
 
-1. `bin/executable_clean-worktrees.sh` (286 LOC, one-shot import, ornamental
-   output) — assess for flattening; lowest confidence target.
-2. `dot_hermes/templates/new-project/` template bodies (`dot_gitignore`
-   40 lines — check for toolchain entries the scaffold never uses).
-3. `dot_config/git/config` `init.defaultBranch=master` — considered, kept
+1. `bin/executable_clean-worktrees.sh` FORCE branch duplication (~7 lines
+   identical in DIRTY and UNMERGED arms) — left in place; restructuring a
+   destructive interactive tool for a 7-line win is poor risk/reward.
+2. `dot_config/git/config` `init.defaultBranch=master` — considered, kept
    (real effect: deterministic init branch); revisit only if Alan standardizes
    on another default.
 
@@ -121,6 +129,14 @@ Run 2 (2026-09-13, 08eff7a..25dc9a2):
 - test files / LOC: unchanged (2 / 614)
 - verification: `bash -n` on dot_zshrc, `tomllib` parse on both edited TOML
   files, diff review; contract suite still 41/41 green.
+
+Run 3 (2026-09-13, 830b66b):
+
+- source files: 49 → 49
+- source LOC: 3573 → 3568 (−5)
+- test files / LOC: unchanged (2 / 614)
+- verification: hermetic scratch-repo run of clean-worktrees.sh (dry-run
+  classification + real removal, exit statuses 1/0 as documented).
 
 Verification: `bash -n` all touched shell scripts clean; contract suite
 41/41 green after every commit; `python3 -m py_compile` on remaining python;
