@@ -40,6 +40,15 @@ Load-bearing code unless the recorded dependency has disappeared.
   template. Verified behaviorally in a /tmp scratch repo (dry-run
   classification, real merged-worktree removal, exit codes 1/0 as
   documented).
+- Fresh-eyes sweep (FreshEyes scout) — 2026-09-13, f91c5c3..0abd0d0 —
+  dropped dead `--config`/env `config_file` stores in apple-build and
+  apple-dev-health main parse loops (scan loop already sourced the file);
+  stripped stock/placeholder comments from dot_bash_profile and dot_bashrc;
+  trimmed starship palette to the 5 colors styles reference; merged
+  duplicate `{{ if ne .chezmoi.os "darwin" }}` blocks in .chezmoiignore;
+  renamed dot_config/apple-dev/config.tmpl → config (zero template
+  directives); clean-worktrees summary label now 'Removed' (accurate under
+  --force).
 
 ## Untraceable
 
@@ -58,6 +67,10 @@ Load-bearing code unless the recorded dependency has disappeared.
   by any in-repo pointer (expected for convention-loaded files). Current per
   workspace memory (Firecrawl embedded in personal-search). Searched: tree
   grep, git history (untouched since 07dcb44). Left in place.
+- `dot_omp/profiles/omp-partner/agent/config.yml` — zero in-tree references,
+  but standard dot_omp/profiles/<name>/ layout means OMP itself is the
+  convention loader (same rationale as the rules/ file); also actively
+  iterated by Alan (feat commit added it). Left in place.
 
 ## Load-bearing
 
@@ -100,10 +113,19 @@ Load-bearing code unless the recorded dependency has disappeared.
 - `run_onchange_04-macos-settings.sh` prints "✓ Firewall enabled" /
   "✓ Stealth mode enabled" unconditionally even when the sudo command was
   skipped with a warning line. Cosmetic inconsistency only.
+- `run_onchange_05-zen-browser-theme.sh` — chezmoi re-runs run_onchange
+  scripts only when the script's own content changes; the script embeds no
+  checksum of the theme files it copies, so theme edits never propagate
+  until the script is touched. Fix (checksum comment or direct management)
+  is a behavior change beyond deslop scope — Alan's call.
+- macOS `dot_gitconfig` carries only user + credential helpers, while the
+  Linux `dot_config/git/config` has aliases/rebase/rerere/etc. Beyond the
+  documented gh-path split; possibly deliberate (jj-first on macOS). Not
+  decidable from repo evidence.
 
 ## Remaining
 
-Ranked next targets:
+Nothing actionable. Recorded verdicts:
 
 1. `bin/executable_clean-worktrees.sh` FORCE branch duplication (~7 lines
    identical in DIRTY and UNMERGED arms) — left in place; restructuring a
@@ -111,6 +133,9 @@ Ranked next targets:
 2. `dot_config/git/config` `init.defaultBranch=master` — considered, kept
    (real effect: deterministic init branch); revisit only if Alan standardizes
    on another default.
+
+Stop condition (b) met 2026-09-13: Remaining lists nothing actionable and
+every tree unit is Clean, Untraceable, Load-bearing, or a recorded Finding.
 
 ## Totals
 
@@ -137,6 +162,16 @@ Run 3 (2026-09-13, 830b66b):
 - test files / LOC: unchanged (2 / 614)
 - verification: hermetic scratch-repo run of clean-worktrees.sh (dry-run
   classification + real removal, exit statuses 1/0 as documented).
+
+Run 4 (2026-09-13, f91c5c3..0abd0d0):
+
+- source files: 49 → 49 (apple-dev config.tmpl renamed, not deleted)
+- source LOC: 3568 → 3681 (+113: DESLOP.md bookkeeping from runs 2-3 added
+  to the source count; excluding DESLOP.md the code delta is −66)
+- test files / LOC: unchanged (2 / 614)
+- verification: contract suite 41/41 after each commit; bash -n on all
+  touched shell files; tomllib parse; clean-worktrees exercised in a
+  scratch repo (summary labels verified).
 
 Verification: `bash -n` all touched shell scripts clean; contract suite
 41/41 green after every commit; `python3 -m py_compile` on remaining python;
