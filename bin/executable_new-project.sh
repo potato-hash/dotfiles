@@ -2,9 +2,9 @@
 # new-project.sh — Initialize a new project with colocated jj, private GitHub repo, and AGENTS.md
 #
 # Usage:
-#   ~/scripts/new-project.sh <name>              # private repo (default)
-#   ~/scripts/new-project.sh <name> --public     # public repo (confirm with the user first)
-#   ~/scripts/new-project.sh <name> --no-gh      # skip GitHub creation (local only — not recommended)
+#   ~/bin/new-project.sh <name>              # private repo (default)
+#   ~/bin/new-project.sh <name> --public     # public repo (confirm with the user first)
+#   ~/bin/new-project.sh <name> --no-gh      # skip GitHub creation (local only — not recommended)
 #
 # Creates:
 #   ~/projects/<name>/ with colocated jj+git, AGENTS.md, .gitignore, README.md,
@@ -124,57 +124,6 @@ else
     echo "     Create a remote later: gh repo create potato-hash/$NAME --private --source=. --push"
 fi
 
-# --- Verify ---
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "◆ Verification"
-echo ""
-
-# jj status
-if jj status >/dev/null 2>&1; then
-    echo "  ✓ jj status: OK"
-else
-    echo "  ✗ jj status: FAILED" >&2
-    exit 1
-fi
-
-# Bookmark tracking
-if jj bookmark list 2>/dev/null | grep -q "main"; then
-    echo "  ✓ jj bookmark: main tracked"
-else
-    echo "  ⚠ jj bookmark: main not found (may need jj bookmark track main --remote=origin)"
-fi
-
-# Remote
-if [[ "$CREATE_GH" == true ]]; then
-    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-    if [[ -n "$REMOTE_URL" ]]; then
-        echo "  ✓ git remote: $REMOTE_URL"
-    else
-        echo "  ✗ git remote: origin not set" >&2
-        exit 1
-    fi
-fi
-
-# AGENTS.md
-if [[ -f "$PROJECT_DIR/AGENTS.md" ]]; then
-    if grep -q "engineering-handbook" "$PROJECT_DIR/AGENTS.md"; then
-        echo "  ✓ AGENTS.md: delegation policy pointer present"
-    else
-        echo "  ⚠ AGENTS.md: delegation policy pointer missing"
-    fi
-else
-    echo "  ✗ AGENTS.md: file missing" >&2
-    exit 1
-fi
-
-# .gitignore
-if [[ -f "$PROJECT_DIR/.gitignore" ]]; then
-    echo "  ✓ .gitignore: present"
-else
-    echo "  ⚠ .gitignore: missing"
-fi
 
 echo ""
 echo "◆ Done. Project ready at: $PROJECT_DIR"
