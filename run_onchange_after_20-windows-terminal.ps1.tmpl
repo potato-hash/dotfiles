@@ -1,0 +1,77 @@
+{{- if eq .chezmoi.os "windows" -}}
+# Keeps a marked block in the PowerShell 7 profile and turns off Windows
+# Terminal's multi-line paste warning. Everything else in both files is left alone.
+$ErrorActionPreference = 'Stop'
+$utf8 = New-Object System.Text.UTF8Encoding $false
+
+$begin = '# >>> dotfiles terminal preferences >>>'
+$end = '# <<< dotfiles terminal preferences <<<'
+$block = @'
+# >>> dotfiles terminal preferences >>>
+$wingetLinks = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links'
+if (($env:PATH -split ';') -notcontains $wingetLinks) {
+    $env:PATH = "$wingetLinks;$env:PATH"
+}
+$starshipBin = Join-Path $env:ProgramFiles 'starship\bin'
+if (($env:PATH -split ';') -notcontains $starshipBin) {
+    $env:PATH = "$starshipBin;$env:PATH"
+}
+$env:STARSHIP_CONFIG = Join-Path $HOME '.config\starship.toml'
+
+if (Get-Module -ListAvailable -Name PSReadLine) {
+    Import-Module PSReadLine
+    Set-PSReadLineOption `
+        -EditMode Emacs `
+        -HistorySaveStyle SaveIncrementally `
+        -MaximumHistoryCount 5000 `
+        -HistoryNoDuplicates
+    Set-PSReadLineKeyHandler -Chord Ctrl+p -Function HistorySearchBackward
+    Set-PSReadLineKeyHandler -Chord Ctrl+n -Function HistorySearchForward
+    # Emacs mode leaves Ctrl+V unbound; bind it so a pasted script lands as one editable block.
+    Set-PSReadLineKeyHandler -Chord Ctrl+v -Function Paste
+}
+
+if (Get-Command zoxide -ErrorAction Ignore) {
+    Invoke-Expression ((& zoxide init --cmd cd powershell) -join [Environment]::NewLine)
+}
+if (Get-Command starship -ErrorAction Ignore) {
+    Invoke-Expression (& starship init powershell)
+}
+if (Get-Command eza -ErrorAction Ignore) {
+    function global:ll { & eza -l @args }
+    function global:la { & eza -la @args }
+}
+# <<< dotfiles terminal preferences <<<
+'@ -replace "`r`n", "`n"
+
+# chezmoi may run this under Windows PowerShell, so name the PowerShell 7 profile explicitly.
+$profilePath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Microsoft.PowerShell_profile.ps1'
+New-Item -ItemType Directory -Force -Path (Split-Path $profilePath) | Out-Null
+$text = if (Test-Path $profilePath) { [IO.File]::ReadAllText($profilePath) -replace "`r`n", "`n" } else { '' }
+$pattern = '(?s)' + [regex]::Escape($begin) + '.*?' + [regex]::Escape($end)
+if ($text -match $pattern) {
+    $new = [regex]::Replace($text, $pattern, { param($m) $block }, 1)
+} else {
+    $new = $block + "`n`n" + $text
+}
+if ($new -ne $text) {
+    [IO.File]::WriteAllText($profilePath, $new, $utf8)
+    Write-Host "Updated $profilePath"
+}
+
+$terminalSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+if (Test-Path $terminalSettings) {
+    $json = [IO.File]::ReadAllText($terminalSettings)
+    if ($json -match '"warning\.multiLinePaste"') {
+        $fixed = $json -replace '("warning\.multiLinePaste"\s*:\s*)true', '${1}false'
+        if ($fixed -ne $json) {
+            [IO.File]::WriteAllText($terminalSettings, $fixed, $utf8)
+            Write-Host "Turned off the multi-line paste warning in $terminalSettings"
+        }
+    } else {
+        $json = ([regex]'\{').Replace($json, "{`n    `"warning.multiLinePaste`": false,", 1)
+        [IO.File]::WriteAllText($terminalSettings, $json, $utf8)
+        Write-Host "Turned off the multi-line paste warning in $terminalSettings"
+    }
+}
+{{ end -}}

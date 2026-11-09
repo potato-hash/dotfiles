@@ -1,6 +1,6 @@
 # Dotfiles
 
-Chezmoi-managed dotfiles for macOS and Linux. This repository is intentionally public.
+Chezmoi-managed dotfiles for macOS, Linux and Windows. This repository is intentionally public.
 
 ## Public-Safety Policy
 

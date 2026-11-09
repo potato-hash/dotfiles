@@ -1,6 +1,6 @@
 # dotfiles
 
-Automated setup for macOS and Omarchy Linux.
+Automated setup for macOS and Omarchy Linux, plus PowerShell and Windows Terminal preferences on Windows.
 
 ## Third-party material
 
@@ -52,6 +52,15 @@ On Omarchy, chezmoi applies only the Linux-specific pieces:
 - Idempotent Omarchy local setup script that installs preferred packages/apps including Oh My Pi, sets Tokyo Night/Ghostty/Zen/Zed defaults, patches app/AI/GitHub bindings, removes redundant preinstalls, and keeps only Discord + YouTube from Omarchy's default web apps while preserving Chromium for web app support
 
 The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `defaults` scripts are ignored on Linux so they do not overwrite Omarchy's stock desktop behavior. The Omarchy setup script is ignored on macOS, so it cannot affect the macOS Homebrew/defaults setup.
+
+## Windows Terminal
+
+On Windows, `chezmoi apply` runs one script that keeps a marked
+`dotfiles terminal preferences` block in the PowerShell 7 profile (PATH for
+winget and starship, PSReadLine in Emacs mode with history search, Ctrl+V bound
+to paste so a multi-line script arrives as one editable block, zoxide, starship,
+eza `ll`/`la`) and sets `"warning.multiLinePaste": false` in Windows Terminal.
+The rest of the profile and of Terminal's settings is left as it is.
 
 ## What It Does
 
