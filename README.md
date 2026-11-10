@@ -22,7 +22,8 @@ covered files, copyright, and license text.
    applying them:
    ```bash
    export HINDSIGHT_API_URL='<local-hindsight-url>'
-   chezmoi init potato-hash
+   export DOTFILES_REPO='<dotfiles-repo-url>'
+   chezmoi init "$DOTFILES_REPO"
    chezmoi diff
    chezmoi apply
    ```
@@ -37,7 +38,8 @@ Install Omarchy first, then apply the Linux side of these dotfiles:
 ```bash
 omarchy pkg add chezmoi
 export HINDSIGHT_API_URL='<local-hindsight-url>'
-chezmoi init --apply potato-hash
+export DOTFILES_REPO='<dotfiles-repo-url>'
+chezmoi init --apply "$DOTFILES_REPO"
 ```
 
 On Omarchy, chezmoi applies only the Linux-specific pieces:
@@ -174,7 +176,8 @@ For a first macOS apply:
 xcode-select --install
 brew install chezmoi
 export HINDSIGHT_API_URL='<local-hindsight-url>'
-chezmoi init potato-hash
+export DOTFILES_REPO='<dotfiles-repo-url>'
+chezmoi init "$DOTFILES_REPO"
 chezmoi diff
 chezmoi apply
 ```
@@ -204,11 +207,18 @@ chezmoi update
 By default, `chezmoi init` clones to `~/.local/share/chezmoi`. To use `~/dotfiles` instead:
 
 ```bash
-git clone https://github.com/potato-hash/dotfiles.git ~/dotfiles
+git clone "$DOTFILES_REPO" ~/dotfiles
 printf 'sourceDir = "%s/dotfiles"\n' "$HOME" > ~/.config/chezmoi/chezmoi.toml
 export HINDSIGHT_API_URL='<local-hindsight-url>'
 chezmoi apply
 ```
+
+### Source repository
+
+`DOTFILES_REPO` is the clone URL of the canonical copy of this repository on
+your own Git host (reachable from the new machine). The GitHub copy (`potato-hash/dotfiles`) is frozen and
+behind; do not bootstrap from it. Once initialized, `chezmoi update` pulls from
+whatever remote the source directory already has.
 
 ### Local service endpoints
 
