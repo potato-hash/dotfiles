@@ -23,7 +23,8 @@ source, copyright and license text.
 | PowerShell profile block, Terminal paste setting | | | yes |
 
 `.chezmoiignore` enforces this, and keeps the repository's own files
-(`AGENTS.md`, `DESLOP.md`, `tests/`, `Brewfile`, this README, the licenses) out
+(`AGENTS.md`, `DESLOP.md`, `scripts/`, `tests/`, `Brewfile`, this README, the
+licenses) out
 of `$HOME`. Its patterns match target paths such as `.config/zed`, not source
 names such as `dot_config/zed`.
 
@@ -53,10 +54,30 @@ settings.
    chezmoi diff
    chezmoi apply
    ```
-5. Restart your terminal.
+5. Finish the steps that need a person:
+   ```bash
+   sudo tailscale up --ssh                    # sign in through the link it prints
+   sudo xcodebuild -license accept            # once Xcode is installed
+   sudo xcodebuild -runFirstLaunch
+   ```
+   Sign in to 1Password, then restart your terminal.
 
-Homebrew installs on the first apply; `brew bundle` reruns whenever the
-Brewfile changes.
+The first apply runs, in order:
+
+1. Command Line Tools: starts Apple's installer if they are missing and waits
+   for its dialog to finish.
+2. Homebrew: downloads the official installer to a private temporary file,
+   then runs it.
+3. `brew bundle` from the Brewfile; it reruns whenever the Brewfile changes.
+4. The dotfiles, then the macOS settings script (Dock, Finder, keyboard,
+   security, power).
+5. tailscaled: installs the Homebrew formula's daemon as a boot-time system
+   service so the Mac can be a Tailscale SSH server. It stops if
+   `Tailscale.app` is installed, since the two conflict. Leave
+   `--accept-routes` off unless you need subnet routes.
+
+Steps that need `sudo` prompt for it; the settings script skips a `sudo`
+step it cannot run and says so.
 
 ## Linux Setup
 
@@ -114,6 +135,7 @@ Removes: Chess, FaceTime, Freeform, GarageBand, Home, Image Playground, iMovie, 
 - **Screenshots:** saved to ~/Screenshots as PNG, no shadow, no thumbnail
 - **Storage:** no .DS_Store on network/USB drives
 - **Security:** immediate screen lock, firewall on, stealth mode on, secure keyboard entry in Terminal
+- **Power:** on the charger the system and display never sleep; restart after a power failure; wake for network access
 - **Misc:** Photos won't auto-launch on device connect
 
 ## Remote Apple development
@@ -193,11 +215,21 @@ needed. No signing, CI, or application scaffolding is installed.
 ```bash
 # After changing a config locally:
 chezmoi add ~/.config/ghostty/config    # update chezmoi's copy
-cd ~/dotfiles && git add -A && git commit -m "..." && git push
+cd ~/dotfiles
+scripts/scan-public.sh --history        # must pass before any push
+git add -A && git commit -m "..." && git push
 
 # To pull changes on this machine:
 chezmoi update
 ```
+
+This repository is public. `scripts/scan-public.sh` checks the working tree,
+or with `--history` every reachable commit, for credential shapes, personal
+home paths, private hostnames and addresses, and email addresses other than the
+public noreply identity. It prints only file paths and the kind of match. Put
+your own private markers (hostnames, tailnet name, real emails) in
+`.git/info/public-scan-markers`, one extended regex per line; Git never pushes
+that file. CI runs the same scan without your markers.
 
 ### Relocating the source directory
 

@@ -208,6 +208,17 @@ echo "    ✓ Pink accent color set"
 defaults write -globalDomain AppleHighlightColor -string "1.000000 0.749020 0.823529 Pink"
 echo "    ✓ Pink highlight color set"
 
+# ── Power ────────────────────────────────────────────────────────────────────
+echo -e "\n\033[1;34m==> Configuring power\033[0m"
+
+# On the charger: never sleep the system or the display. Restart after a power
+# failure and wake for network access, so the Mac comes back on its own.
+if sudo pmset -c sleep 0 displaysleep 0 && sudo pmset -a autorestart 1 womp 1; then
+    echo "    ✓ No sleep on power, auto-restart and wake-on-LAN on"
+else
+    echo "    ⚠ Power settings require sudo (skipped)"
+fi
+
 # ── Apply changes ────────────────────────────────────────────────────────────
 echo -e "\n\033[1;34m==> Applying changes\033[0m"
 killall Dock 2>/dev/null || true

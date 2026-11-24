@@ -9,6 +9,8 @@ LICENSE
 THIRD_PARTY_NOTICES.md
 tests
 tests/**
+scripts
+scripts/**
 
 {{ if ne .chezmoi.os "darwin" }}
 # macOS only: the Mac's shell, apps, Homebrew and system settings.
@@ -25,6 +27,7 @@ bin
 02-brew-bundle.sh
 04-macos-settings.sh
 05-zen-browser-theme.sh
+06-tailscaled.sh
 {{ end }}
 
 {{ if eq .chezmoi.os "windows" }}

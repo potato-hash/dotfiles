@@ -9,8 +9,12 @@ jobs:
   apple-command-contracts:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Python and git
+        run: apt-get update && apt-get install -y --no-install-recommends python3 git ca-certificates
       - uses: https://code.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Install Python
-        run: apt-get update && apt-get install -y --no-install-recommends python3
+        with:
+          fetch-depth: 0
+      - name: Scan the tree and every commit for secrets and private data
+        run: sh scripts/scan-public.sh --history
       - name: Run portable Apple command contract tests
         run: bash tests/test_apple_commands.sh
