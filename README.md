@@ -2,11 +2,12 @@
 
 Automated setup for macOS and Omarchy Linux, plus PowerShell and Windows Terminal preferences on Windows.
 
-## Third-party material
+## License
 
-The included Catppuccin theme for Zen Browser is distributed under the MIT
-License. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for its source,
-covered files, copyright, and license text.
+MIT; see [LICENSE](LICENSE). The Catppuccin theme for Zen Browser and the
+Waybar and Hyprlock configs adapted from Omarchy keep their own MIT notices;
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the files, sources,
+copyrights and license text.
 
 ## macOS Setup
 
@@ -216,8 +217,9 @@ chezmoi apply
 ### Source repository
 
 `DOTFILES_REPO` is the clone URL of the canonical copy of this repository on
-your own Git host (reachable from the new machine). The GitHub copy (`potato-hash/dotfiles`) is frozen and
-behind; do not bootstrap from it. Once initialized, `chezmoi update` pulls from
+your own Git host (reachable from the new machine). The GitHub copy (`potato-hash/dotfiles`) is an
+automatic push-mirror of every branch of the canonical copy; still bootstrap
+from the canonical copy. Once initialized, `chezmoi update` pulls from
 whatever remote the source directory already has.
 
 ### Local service endpoints

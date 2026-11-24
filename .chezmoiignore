@@ -1,5 +1,7 @@
 Brewfile
 README.md
+LICENSE
+THIRD_PARTY_NOTICES.md
 
 {{ if ne .chezmoi.os "darwin" }}
 dot_config/aerospace
