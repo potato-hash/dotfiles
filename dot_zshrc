@@ -1,4 +1,6 @@
-export PATH="$HOME/bin:$PATH"
+# Keep the first occurrence of each PATH entry across nested shells.
+typeset -U path PATH
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
 # Zinit plugin manager (auto-install if missing)
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
@@ -19,7 +21,9 @@ autoload -Uz compinit && compinit
 zinit cdreplay -q
 
 # Starship prompt
-eval "$(starship init zsh)"
+if (( $+commands[starship] )); then
+    eval "$(starship init zsh)"
+fi
 
 # Keybindings
 bindkey -e
@@ -44,12 +48,16 @@ zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always $realpath'
 zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'eza --color=always $realpath'
 
 # fzf shell integration (Ctrl+R history, Ctrl+T file finder)
-source <(fzf --zsh)
+if (( $+commands[fzf] )); then
+    source <(fzf --zsh)
+fi
 
 # zoxide (replaces cd)
-eval "$(zoxide init --cmd cd zsh)"
+if (( $+commands[zoxide] )); then
+    eval "$(zoxide init --cmd cd zsh)"
+fi
 
-# Claude Code session helpers
+# Claude Code session helpers; tmux is started by hand, never at shell startup.
 alias cs='~/bin/claude-session'
 alias tls='tmux list-sessions'
 alias ta='tmux attach -t'
@@ -58,8 +66,3 @@ alias ta='tmux attach -t'
 alias ls='eza'
 alias ll='eza -l'
 alias la='eza -la'
-
-# Auto-attach to tmux (local and remote)
-if [[ -z "$TMUX" ]] && [[ -n "$PS1" ]] && command -v tmux &>/dev/null; then
-    tmux new-session -A -s main
-fi

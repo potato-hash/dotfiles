@@ -1,8 +1,0 @@
-# If not running interactively, don't do anything.
-[[ $- != *i* ]] && return
-
-# Omarchy shell defaults.
-if [[ -f ~/.local/share/omarchy/default/bash/rc ]]; then
-    source ~/.local/share/omarchy/default/bash/rc
-fi
-

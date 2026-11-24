@@ -1,37 +1,35 @@
-# See https://git-scm.com/docs/git-config
-
 [alias]
 	co = checkout
 	br = branch
 	ci = commit
 	st = status
 [init]
-	defaultBranch = master
+	defaultBranch = main
 [pull]
-	rebase = true           # Rebase instead of merge on pull
+	rebase = true
 [push]
-	autoSetupRemote = true  # Automatically set upstream branch on push
+	autoSetupRemote = true
 [diff]
-	algorithm = histogram   # Clearer diffs on moved/edited lines
-	colorMoved = plain      # Highlight moved blocks in diffs
-	mnemonicPrefix = true   # More intuitive refs in diff output
+	algorithm = histogram
+	colorMoved = plain
+	mnemonicPrefix = true
 [commit]
-	verbose = true          # Include diff comment in commit message template
+	verbose = true
 [column]
-	ui = auto               # Output in columns when possible
+	ui = auto
 [branch]
-	sort = -committerdate   # Sort branches by most recent commit first
+	sort = -committerdate
 [tag]
-	sort = -version:refname # Sort version numbers as expected
+	sort = -version:refname
 [rerere]
-	enabled = true          # Record and reuse conflict resolutions
-	autoupdate = true       # Apply stored conflict resolutions automatically
+	enabled = true
+	autoupdate = true
 [user]
 	name = potato-hash
 	email = 66528142+potato-hash@users.noreply.github.com
 [credential "https://github.com"]
 	helper =
-	helper = !/usr/bin/gh auth git-credential
+	helper = !/opt/homebrew/bin/gh auth git-credential
 [credential "https://gist.github.com"]
 	helper =
-	helper = !/usr/bin/gh auth git-credential
+	helper = !/opt/homebrew/bin/gh auth git-credential

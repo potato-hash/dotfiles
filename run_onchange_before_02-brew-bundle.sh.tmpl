@@ -1,0 +1,9 @@
+#!/bin/bash
+# Brewfile hash: {{ include "Brewfile" | sha256sum }}
+set -e
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+echo -e "\n\033[1;34m==> Installing packages from Brewfile\033[0m"
+brew bundle --file={{ joinPath .chezmoi.sourceDir "Brewfile" | quote }} || echo "    ⚠ Some packages failed to install (continuing)"
+echo "    ✓ Brew bundle complete"

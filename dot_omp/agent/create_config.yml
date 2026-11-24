@@ -1,0 +1,103 @@
+symbolPreset: nerd
+theme:
+  dark: titanium
+setupVersion: 2
+modelRoles:
+  default: openai-codex/gpt-6.1-sol
+  smol: openai-codex/gpt-6-luna:max
+  slow: openai-codex/gpt-5.6-sol:xhigh
+  plan: openai-codex/gpt-5.6-sol:xhigh
+  task: openai-codex/gpt-5.6-luna:medium
+  advisor: openai-codex/gpt-6-astra:auto
+  designer: openai-codex/gpt-5.6-sol:high
+  commit: openai-codex/gpt-5.6-luna:minimal
+  tiny: openai-codex/gpt-5.6-luna:minimal
+  web: web/kagi
+  vision: openai-codex/gpt-6.1-sol
+defaultThinkingLevel: auto
+prewalk:
+  enabled: false
+advisor:
+  enabled: true
+  syncBacklog: "1"
+autoResume: false
+features:
+  unexpectedStopDetection: smart
+branchSummary:
+  enabled: true
+contextPromotion:
+  enabled: true
+compaction:
+  thresholdPercent: 80
+  handoffSaveToDisk: true
+  experimentalContextManagement: true
+memory:
+  backend: "off"
+hindsight:
+  autoRecall: false
+  autoRetain: false
+read:
+  summarize:
+    prose: true
+lsp:
+  formatOnWrite: true
+bash:
+  autoBackground:
+    enabled: true
+bashInterceptor:
+  enabled: true
+checkpoint:
+  enabled: true
+vault:
+  enabled: true
+github:
+  enabled: true
+plan:
+  defaultOnStartup: true
+  enabled: false
+task:
+  eager: preferred
+  isolation:
+    enabled: true
+  agentAdvisor:
+    task: "on"
+  prewalk: false
+secrets:
+  enabled: true
+isolation:
+  backend: auto
+composer:
+  shape: band
+retry:
+  fallbackChains:
+    web:
+      - web/perplexity
+      - google-gemini-cli/gemini-2.5-flash
+      - google-antigravity/gemini-2.5-flash
+      - google/gemini-2.5-flash
+      - anthropic/claude-haiku-4-5
+      - openai-codex/gpt-5.6-luna
+      - xai/grok-4.5
+      - web/zai
+      - web/exa
+      - web/tinyfish
+      - web/jina
+      - web/tavily
+      - web/firecrawl
+      - web/brave
+      - web/kimi
+      - web/parallel
+      - web/synthetic
+      - web/searxng
+      - web/startpage
+      - web/duckduckgo
+      - web/ecosia
+      - web/google
+      - web/mojeek
+      - web/public
+      - web/hosted
+steeringMode: all
+followUpMode: all
+extendedContext: true
+dev:
+  autoqaConsent: granted

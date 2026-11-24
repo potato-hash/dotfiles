@@ -1,28 +1,53 @@
 # dotfiles
 
-Automated setup for macOS and Omarchy Linux, plus PowerShell and Windows Terminal preferences on Windows.
+Chezmoi-managed dotfiles for a Mac, plus the shared prompt and tmux setup on
+Linux and the PowerShell and Windows Terminal preferences on Windows.
 
 ## License
 
-MIT; see [LICENSE](LICENSE). The Catppuccin theme for Zen Browser and the
-Waybar and Hyprlock configs adapted from Omarchy keep their own MIT notices;
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the files, sources,
-copyrights and license text.
+MIT; see [LICENSE](LICENSE). The Catppuccin theme for Zen Browser keeps its own
+MIT notice; [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the files,
+source, copyright and license text.
+
+## What each OS gets
+
+| | macOS | Linux | Windows |
+|---|---|---|---|
+| zsh, git, Ghostty, Zed, Zen, AeroSpace, OMP | yes | | |
+| Homebrew, Brewfile, `defaults` scripts | yes | | |
+| `~/bin` helpers (`claude-session`, `clean-worktrees.sh`) | yes | | |
+| `.tmux.conf` | yes | yes | |
+| `.config/starship.toml` | yes | yes | yes |
+| `apple-build`, `apple-dev-health`, `.config/apple-dev` | yes | yes | |
+| `apple-build-worker` | yes | | |
+| PowerShell profile block, Terminal paste setting | | | yes |
+
+`.chezmoiignore` enforces this, and keeps the repository's own files
+(`AGENTS.md`, `DESLOP.md`, `tests/`, `Brewfile`, this README, the licenses) out
+of `$HOME`. Its patterns match target paths such as `.config/zed`, not source
+names such as `dot_config/zed`.
+
+Linux machines that run NixOS declare their shell, git and desktop in their own
+NixOS or home-manager configuration, and these dotfiles do not repeat it. On
+Linux chezmoi brings only what those configurations leave out: the tmux and
+starship files and the Apple development clients.
+
+OMP's `~/.omp/agent/config.yml` is seeded once (`create_` prefix): chezmoi
+writes it only when it does not exist, because OMP rewrites it as you change
+settings.
 
 ## macOS Setup
 
 1. Complete macOS OOBE and sign into the App Store
-2. Open Terminal and install the command-line tools:
+2. Install the command-line tools:
    ```bash
    xcode-select --install
    ```
 3. Install chezmoi through Homebrew (`brew install chezmoi`) or from a pinned
    official release after verifying its published checksum. Do not pipe an
    unpinned remote installer into a shell.
-4. Set the local Hindsight endpoint, then inspect the proposed changes before
-   applying them:
+4. Inspect the proposed changes, then apply them:
    ```bash
-   export HINDSIGHT_API_URL='<local-hindsight-url>'
    export DOTFILES_REPO='<dotfiles-repo-url>'
    chezmoi init "$DOTFILES_REPO"
    chezmoi diff
@@ -30,68 +55,55 @@ copyrights and license text.
    ```
 5. Restart your terminal.
 
-After the local endpoint variable is set, everything below happens automatically.
+Homebrew installs on the first apply; `brew bundle` reruns whenever the
+Brewfile changes.
 
-## Omarchy Setup
-
-Install Omarchy first, then apply the Linux side of these dotfiles:
+## Linux Setup
 
 ```bash
-omarchy pkg add chezmoi
-export HINDSIGHT_API_URL='<local-hindsight-url>'
 export DOTFILES_REPO='<dotfiles-repo-url>'
-chezmoi init --apply "$DOTFILES_REPO"
+chezmoi init "$DOTFILES_REPO"
+chezmoi diff
+chezmoi apply
 ```
-
-On Omarchy, chezmoi applies only the Linux-specific pieces:
-
-- Bash profile that loads Omarchy's shell defaults
-- Hyprland input settings for US + Colemak layout switching
-- Hyprlock fingerprint unlock
-- Git config using `/usr/bin/gh` as the credential helper
-- Oh My Pi (`omp`) agent settings
-- Omarchy `theme-set` hook for `omazed`
-- Transparent Waybar top bar styling
-- Idempotent Omarchy local setup script that installs preferred packages/apps including Oh My Pi, sets Tokyo Night/Ghostty/Zen/Zed defaults, patches app/AI/GitHub bindings, removes redundant preinstalls, and keeps only Discord + YouTube from Omarchy's default web apps while preserving Chromium for web app support
-
-The macOS terminal, prompt, tmux, Zed, Zen Browser, AeroSpace, Homebrew, and `defaults` scripts are ignored on Linux so they do not overwrite Omarchy's stock desktop behavior. The Omarchy setup script is ignored on macOS, so it cannot affect the macOS Homebrew/defaults setup.
 
 ## Windows Terminal
 
-On Windows, `chezmoi apply` runs one script that keeps a marked
-`dotfiles terminal preferences` block in the PowerShell 7 profile (PATH for
-winget and starship, PSReadLine in Emacs mode with history search, Ctrl+V bound
-to paste so a multi-line script arrives as one editable block, zoxide, starship,
-eza `ll`/`la`) and sets `"warning.multiLinePaste": false` in Windows Terminal.
-The rest of the profile and of Terminal's settings is left as it is.
+On Windows, `chezmoi apply` writes `~/.config/starship.toml` and runs one
+script that keeps a marked `dotfiles terminal preferences` block in the
+PowerShell 7 profile (PATH for winget and starship, `STARSHIP_CONFIG`,
+PSReadLine in Emacs mode with history search, Ctrl+V bound to paste so a
+multi-line script arrives as one editable block, zoxide, starship, eza
+`ll`/`la`) and sets `"warning.multiLinePaste": false` in Windows Terminal. The
+rest of the profile and of Terminal's settings is left as it is.
 
-## What It Does
+## What It Does on macOS
 
-### macOS Packages (Brewfile)
+### Packages (Brewfile)
 
-**CLI tools:** borders, chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, micro, mosh, starship, synergy-core, tailscale, tmux, zoxide
+**CLI tools:** borders, chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, jq, micro, mosh, starship, synergy-core, tailscale, tmux, zoxide
 
-**Apps (Homebrew):** AeroSpace, BetterDisplay, Bitwarden, Claude, Claude Code, Discord, Ghostty, GrandPerspective, Hush, Iosevka, LocalSend, Obsidian, Zed, Zen
+**Apps (Homebrew):** 1Password, 1Password CLI, AeroSpace, BetterDisplay, Claude, Claude Code, Discord, Ghostty, GrandPerspective, Hush, Iosevka, LocalSend, Obsidian, Zed, Zen
 
 **Mac App Store apps are installed manually** (mas requires re-auth per app): Amphetamine, Apple Developer, TestFlight, Xcode
 
-**Go:** tailscale + tailscaled
+### Dotfiles
 
-### Shared/macOS Dotfiles
+- `.zshrc`: zinit plugins, starship, fzf, zoxide, eza aliases, tmux helpers (tmux starts by hand, not at login)
+- `.config/starship.toml`: compact prompt with Catppuccin Mocha palette
+- `.config/ghostty/config`: Ghostty terminal settings (Catppuccin Mocha)
+- `.config/zed/settings.json`: Zed editor settings (Catppuccin Mocha)
+- `.config/aerospace/aerospace.toml`: tiling window manager keys and borders
+- `.tmux.conf`: Ctrl+B prefix, mouse support, true color, Catppuccin status bar
+- `.config/git/config`: git defaults, noreply identity and gh credential helper
+- `.omp/agent/`: Oh My Pi settings (seeded once) and its Kanban and smoke-test overlays
+- `bin/claude-session`: tmux session helper for Claude Code
 
-- `.zshrc` — starship, fzf, zoxide, eza aliases, tmux auto-attach
-- `.config/starship.toml` — compact prompt with Catppuccin Mocha palette
-- `.config/ghostty/config` — Ghostty terminal settings (Catppuccin Mocha)
-- `.config/zed/settings.json` — Zed editor settings (Catppuccin Mocha)
-- `.tmux.conf` — prefix key, mouse support, 256 color
-- `.gitconfig` — git identity and gh credential helper
-- `bin/claude-session` — tmux session helper for Claude Code
-
-### macOS App Removal
+### App Removal
 
 Removes: Chess, FaceTime, Freeform, GarageBand, Home, Image Playground, iMovie, Journal, Keynote, Maps, News, Phone, Photo Booth, Podcasts, Stocks, Stickies, Tips, TV
 
-### macOS Settings
+### Settings
 
 - **Dock:** auto-hide, 48px tiles, no delay, no recents, no bounce, scale minimize, custom app layout via dockutil
 - **Hot corners:** top-right puts display to sleep
@@ -117,7 +129,9 @@ details.
 `apple-dev-health` performs exactly one read-only SSH probe. It supports
 `--json` for a stable object with `ok` plus the checks `reachable`, `macos`,
 `omp`, `xcode`, `simulator_runtime`, `disk`, `hindsight`, `tart`, and
-`stale_build_state`. Exit status `0` means no critical or warning checks,
+`stale_build_state`. The `hindsight` check runs a read-only command only when
+`APPLE_DEV_HINDSIGHT_HEALTH_COMMAND` is set; unset, it reports unconfigured.
+Exit status `0` means no critical or warning checks,
 `1` means warnings only, and `2` means at least one critical check or invalid
 configuration. Configuration precedence is CLI > environment > config file >
 defaults. Optional `APPLE_DEV_TART_VM` checks only that exact VM; an empty
@@ -171,25 +185,8 @@ stale state rather than risking deletion of a live build. The worker account
 must be dedicated and trusted to build the submitted repository: Xcode build
 phases execute repository code with that account's permissions.
 
-For a first macOS apply:
-
-```bash
-xcode-select --install
-brew install chezmoi
-export HINDSIGHT_API_URL='<local-hindsight-url>'
-export DOTFILES_REPO='<dotfiles-repo-url>'
-chezmoi init "$DOTFILES_REPO"
-chezmoi diff
-chezmoi apply
-```
-
-If Homebrew is unavailable, install a pinned official chezmoi release only
-after verifying its published checksum. Do not use an unpinned `curl | sh`
-bootstrap.
-
-Then edit `~/.ssh/config` and the generated Apple development config as
+Edit `~/.ssh/config` and the generated Apple development config as
 needed. No signing, CI, or application scaffolding is installed.
-
 
 ## Updating
 
@@ -199,7 +196,6 @@ chezmoi add ~/.config/ghostty/config    # update chezmoi's copy
 cd ~/dotfiles && git add -A && git commit -m "..." && git push
 
 # To pull changes on this machine:
-export HINDSIGHT_API_URL='<local-hindsight-url>'
 chezmoi update
 ```
 
@@ -210,7 +206,6 @@ By default, `chezmoi init` clones to `~/.local/share/chezmoi`. To use `~/dotfile
 ```bash
 git clone "$DOTFILES_REPO" ~/dotfiles
 printf 'sourceDir = "%s/dotfiles"\n' "$HOME" > ~/.config/chezmoi/chezmoi.toml
-export HINDSIGHT_API_URL='<local-hindsight-url>'
 chezmoi apply
 ```
 
@@ -221,13 +216,6 @@ your own Git host (reachable from the new machine). The GitHub copy (`potato-has
 automatic push-mirror of every branch of the canonical copy; still bootstrap
 from the canonical copy. Once initialized, `chezmoi update` pulls from
 whatever remote the source directory already has.
-
-### Local service endpoints
-
-Machine-specific service URLs are not stored in this repository. Export
-`HINDSIGHT_API_URL` before every `chezmoi init`, `diff`, `apply`, or `update`;
-the OMP config template fails rather than writing an empty endpoint. Configure
-`FIRECRAWL_API_URL` in local OMP/MCP runtime data. Keep both values out of Git.
 
 ### Discovering macOS settings
 

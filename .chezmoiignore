@@ -1,30 +1,40 @@
+# Patterns match target paths (relative to $HOME), not source names.
+
+# Repository files, never installed.
+AGENTS.md
+DESLOP.md
 Brewfile
 README.md
 LICENSE
 THIRD_PARTY_NOTICES.md
+tests
+tests/**
 
 {{ if ne .chezmoi.os "darwin" }}
-dot_config/aerospace
-dot_config/ghostty/config
-dot_config/starship.toml
-dot_config/zed/private_settings.json
-dot_config/zen-browser
-dot_gitconfig
-dot_tmux.conf
-dot_zshrc
-run_once_before_01-install-homebrew.sh
-run_once_before_02-brew-bundle.sh
-run_onchange_04-macos-settings.sh
-run_onchange_05-zen-browser-theme.sh
-dot_local/bin/executable_apple-build-worker
+# macOS only: the Mac's shell, apps, Homebrew and system settings.
+.zshrc
+.config/aerospace
+.config/ghostty
+.config/git
+.config/zed
+.config/zen-browser
+.omp
+bin
+.local/bin/apple-build-worker
+01-install-homebrew.sh
+02-brew-bundle.sh
+04-macos-settings.sh
+05-zen-browser-theme.sh
 {{ end }}
 
-{{ if ne .chezmoi.os "linux" }}
-dot_bash_profile
-dot_bashrc
-dot_config/git
-dot_config/hypr
-dot_config/omarchy
-dot_config/waybar
-run_onchange_after_10-omarchy-local.sh.tmpl
+{{ if eq .chezmoi.os "windows" }}
+# Windows gets the starship prompt its PowerShell profile points at, plus the
+# terminal script; the Unix tools above and below are useless there.
+.tmux.conf
+.config/apple-dev
+.local
+{{ end }}
+
+{{ if ne .chezmoi.os "windows" }}
+20-windows-terminal.ps1
 {{ end }}
