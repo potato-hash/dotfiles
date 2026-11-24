@@ -102,11 +102,11 @@ rest of the profile and of Terminal's settings is left as it is.
 
 ### Packages (Brewfile)
 
-**CLI tools:** borders, chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, jq, micro, mosh, starship, synergy-core, tailscale, tmux, zoxide
+**CLI tools:** borders, bun, chezmoi, dockutil, eza, fd, ffmpeg, fzf, gemini-cli, gh, jq, mas, micro, mosh, pandoc, Python 3.13, starship, synergy-core, tailscale, tmux, zoxide
 
-**Apps (Homebrew):** 1Password, 1Password CLI, AeroSpace, BetterDisplay, Claude, Claude Code, Discord, Ghostty, GrandPerspective, Hush, Iosevka, LocalSend, Obsidian, Zed, Zen
+**Apps (Homebrew):** 1Password, 1Password CLI, AeroSpace, Aside, BetterDisplay, Claude, Claude Code, Discord, Ghostty, GrandPerspective, Hush, Iosevka, LocalSend, Obsidian, Zed, Zen
 
-**Mac App Store apps are installed manually** (mas requires re-auth per app): Amphetamine, Apple Developer, TestFlight, Xcode
+**Mac App Store apps are installed manually** (`mas` is installed, but needs re-auth per app): Amphetamine, Apple Developer, TestFlight, Xcode
 
 ### Dotfiles
 
